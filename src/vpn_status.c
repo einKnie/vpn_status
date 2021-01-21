@@ -107,48 +107,6 @@ int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head) {
 	return 0;
 }
 
-ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
-	struct ifinfomsg *ifi;
-	struct rtattr *attr;
-	ssize_t attr_len;
-	unsigned char *ptr = NULL;
-
-	// prepare new ifdata struct
-	ifdata_t *p_new = (ifdata_t*)malloc(sizeof(ifdata_t));
-	memset(p_new->ifname, '\0', sizeof(p_new->ifname));
-	memset(p_new->mac, '\0', sizeof(p_new->mac));
-	p_new->next = NULL;
-	p_new->prev = NULL;
-
-	ifi = (struct ifinfomsg *) NLMSG_DATA(hdr);
-	attr = IFLA_RTA(ifi);
-	attr_len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
-	for (; RTA_OK(attr, attr_len); attr = RTA_NEXT(attr, attr_len)) {
-		switch(attr->rta_type) {
-			case IFLA_ADDRESS:
-				ptr = (unsigned char *) RTA_DATA(attr);
-				snprintf(p_new->mac, sizeof(p_new->mac),
-									"%02x:%02x:%02x:%02x:%02x:%02x",
-									ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5]);
-				break;
-			case IFLA_IFNAME:
-				snprintf(p_new->ifname, sizeof(p_new->ifname),
-									"%s", (char *)RTA_DATA(attr));
-				break;
-			default:
-				break;
-		}
-	}
-
-	if (strlen(p_new->ifname) == 0) {
-		log_debug("no usable interface data gatered, ignoring %7s:%s",
-								p_new->ifname, p_new->mac);
-		free(p_new);
-		p_new = NULL;
-	}
-	return p_new;
-}
-
 /// Add info (ifname && mac) for all current interfaces to ifdata linked list
 int fetch_ifinfo(ifdata_t **head) {
 	int nl_sock = -1;
@@ -238,17 +196,46 @@ int fetch_ifinfo(ifdata_t **head) {
 	return 0;
 }
 
-ifdata_t *find_ifdata(ifdata_t *ifquery, ifdata_t *head) {
-	// if contains ifname or mac
-	// if either matches, return this interface's full data
-	for (ifdata_t *p_tmp = head; p_tmp != NULL; p_tmp = p_tmp->next) {
-		if ((strncmp(p_tmp->ifname, ifquery->ifname, sizeof(p_tmp->ifname)) == 0) ||
-				(strncmp(p_tmp->mac, ifquery->mac, sizeof(p_tmp->mac)) == 0)) {
-			log_debug("found matching interface: %s", p_tmp->ifname);
-			return p_tmp;
+ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
+	struct ifinfomsg *ifi;
+	struct rtattr *attr;
+	ssize_t attr_len;
+	unsigned char *ptr = NULL;
+
+	// prepare new ifdata struct
+	ifdata_t *p_new = (ifdata_t*)malloc(sizeof(ifdata_t));
+	memset(p_new->ifname, '\0', sizeof(p_new->ifname));
+	memset(p_new->mac, '\0', sizeof(p_new->mac));
+	p_new->next = NULL;
+	p_new->prev = NULL;
+
+	ifi = (struct ifinfomsg *) NLMSG_DATA(hdr);
+	attr = IFLA_RTA(ifi);
+	attr_len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
+	for (; RTA_OK(attr, attr_len); attr = RTA_NEXT(attr, attr_len)) {
+		switch(attr->rta_type) {
+			case IFLA_ADDRESS:
+				ptr = (unsigned char *) RTA_DATA(attr);
+				snprintf(p_new->mac, sizeof(p_new->mac),
+									"%02x:%02x:%02x:%02x:%02x:%02x",
+									ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5]);
+				break;
+			case IFLA_IFNAME:
+				snprintf(p_new->ifname, sizeof(p_new->ifname),
+									"%s", (char *)RTA_DATA(attr));
+				break;
+			default:
+				break;
 		}
 	}
-	return NULL;
+
+	if (strlen(p_new->ifname) == 0) {
+		log_debug("no usable interface data gatered, ignoring %7s:%s",
+								p_new->ifname, p_new->mac);
+		free(p_new);
+		p_new = NULL;
+	}
+	return p_new;
 }
 
 void print_ifinfo(ifdata_t *head) {
@@ -283,6 +270,19 @@ void del_ifdata(ifdata_t *p_del, ifdata_t **head) {
 		p_del->next->prev = p_del->prev;
 	}
 	free(p_del);
+}
+
+ifdata_t *find_ifdata(ifdata_t *ifquery, ifdata_t *head) {
+	// ifquery contains ifname or mac
+	// if either matches, return this interface's full data
+	for (ifdata_t *p_tmp = head; p_tmp != NULL; p_tmp = p_tmp->next) {
+		if ((strncmp(p_tmp->ifname, ifquery->ifname, sizeof(p_tmp->ifname)) == 0) ||
+				(strncmp(p_tmp->mac, ifquery->mac, sizeof(p_tmp->mac)) == 0)) {
+			log_debug("found matching interface: %s", p_tmp->ifname);
+			return p_tmp;
+		}
+	}
+	return NULL;
 }
 
 int file_write(int op) {

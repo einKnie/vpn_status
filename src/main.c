@@ -74,5 +74,6 @@ int main(void) {
 	}
 
 	close(nl_sock);
+	log_exit();
 	return 0;
 }

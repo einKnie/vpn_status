@@ -1,5 +1,15 @@
+/*                          _        _
+ *                         | |      | |
+ * __   ___ __  _ __    ___| |_ __ _| |_ _   _ ___
+ * \ \ / / '_ \| '_ \  / __| __/ _` | __| | | / __|
+ *  \ V /| |_) | | | | \__ \ || (_| | |_| |_| \__ \
+ *   \_/ | .__/|_| |_| |___/\__\__,_|\__|\__,_|___/
+ *       | |
+ *       |_|  <einKnie@gmx.at>
+ *
+ */
+
 #include <linux/rtnetlink.h>
-#include <net/if.h>
 #include <string.h>
 #include <errno.h>
 #include "log.h"
@@ -22,7 +32,7 @@
 char g_datfile[PATH_MAX] = {'\0'};	///< path to data file
 
 /// Initialize vpn_status
-int init() {
+int init(ifdata_t **head) {
 	char logfile[PATH_MAX];
   char *user = NULL;
   if ((user = getlogin()) == NULL) {
@@ -33,7 +43,18 @@ int init() {
   snprintf(g_datfile,  sizeof(g_datfile), "/home/%s/.%s", user, PROCNAME);
 
 	// init logging
-	return !log_init(ELogVerbose, ELogStyleVerbose, logfile);
+	if (!log_init(ELogVerbose, ELogStyleVerbose, logfile)) {
+		printf("error: failed to initialize logging\n");
+		return 1;
+	}
+
+	// get current interface data
+	if (fetch_ifinfo(head) != 0) {
+		log_error("Failed to fetch interface information");
+		return 1;
+	}
+
+	return 0;
 }
 
 /// Parse a given netlink message

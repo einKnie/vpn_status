@@ -1,5 +1,18 @@
+/*                          _        _
+ *                         | |      | |
+ * __   ___ __  _ __    ___| |_ __ _| |_ _   _ ___
+ * \ \ / / '_ \| '_ \  / __| __/ _` | __| | | / __|
+ *  \ V /| |_) | | | | \__ \ || (_| | |_| |_| \__ \
+ *   \_/ | .__/|_| |_| |___/\__\__,_|\__|\__,_|___/
+ *       | |
+ *       |_|  <einKnie@gmx.at>
+ *
+ */
+
 #ifndef _VPN_STATUS_H_
 #define _VPN_STATUS_H_
+
+#include <net/if.h>
 
 #define PROCNAME "vpn_status"
 #define VERSION 0.1
@@ -18,7 +31,7 @@ typedef struct ifdata {
 
 
 /// Initialize vpn_status
-int init(void);
+int init(ifdata_t **head);
 /// Parse a netlink message
 int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head);
 /// request info on all interfaces && store data

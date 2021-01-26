@@ -1,22 +1,25 @@
+/*                          _        _
+ *                         | |      | |
+ * __   ___ __  _ __    ___| |_ __ _| |_ _   _ ___
+ * \ \ / / '_ \| '_ \  / __| __/ _` | __| | | / __|
+ *  \ V /| |_) | | | | \__ \ || (_| | |_| |_| \__ \
+ *   \_/ | .__/|_| |_| |___/\__\__,_|\__|\__,_|___/
+ *       | |
+ *       |_|  <einKnie@gmx.at>
+ *
+ */
+
 #include <linux/rtnetlink.h>
-#include <net/if.h>
 #include <string.h>
 #include <poll.h>
 #include "vpn_status.h"
 #include "log.h"
 
-
 int main(void) {
 
 	ifdata_t *p_head = NULL;
-	if (init() != 0) {
+	if (init(&p_head) != 0) {
 		printf("error: failed to initialize\n");
-		exit(1);
-	}
-
-	// get current interface data
-	if (fetch_ifinfo(&p_head) != 0) {
-		log_error("Failed to fetch interface information");
 		exit(1);
 	}
 

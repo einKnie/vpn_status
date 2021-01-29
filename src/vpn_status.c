@@ -21,6 +21,11 @@
 #	define LOGLEVEL ELogDebug
 #endif
 
+// for some reason this ifi flagis not defined even though it should be
+#ifndef IFF_LOWER_UP
+#	define IFF_LOWER_UP (1<<16)
+#endif
+
 ///////////////////////
 // VPN STATUS /////////
 ///////////////////////
@@ -64,28 +69,28 @@ int init(ifdata_t **head) {
 
 /// Parse a given netlink message
 int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head) {
-	struct nlmsghdr *nh;
+	struct nlmsghdr *nh = NULL;
 
 	// Loop over the netlink header contained in the message
 	for (nh = (struct nlmsghdr *) nlmsg_buf; NLMSG_OK(nh, buflen); nh = NLMSG_NEXT(nh, buflen)) {
 
+		ifdata_t *p_dat = get_ifdata(nh);
+		if (p_dat == NULL) {
+			log_debug("invalid interface data gotten: ignoring");
+			continue;
+		}
+
 		if (nh->nlmsg_type == RTM_NEWLINK) {
 			// new link
 
-			ifdata_t *p_dat = get_ifdata(nh);
-			if (p_dat == NULL) {
-				log_debug("invalid interface data gotten: ignoring");
-				continue;
-			}
-
+			// check if interface already exists
 			ifdata_t *p_res = find_ifdata(p_dat, p_head);
 			if (p_res == NULL) {
 				add_ifdata(p_dat, &p_head);
-				if ((strncmp(p_dat->ifname, "tun", 3) == 0) ||
-					(strncmp(p_dat->ifname, "tap", 3) == 0)) {
-					log_notice("\n--\nA VPN connection was added\n--");
-					if (file_write(VPN_UP) != 0) {
-						log_error("Failed to write to file");
+				if (is_tun_or_tap(p_dat->ifname)) {
+					log_notice("\n--\nA VPN interface was added\n--");
+					if (p_dat->up) {
+						file_write(p_dat->up);
 					}
 				}
 
@@ -98,28 +103,25 @@ int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head) {
 
 				if (p_res->up != p_dat->up) {
 					p_res->up = p_dat->up;
+					if(is_tun_or_tap(p_res->ifname)) {
+						file_write(p_res->up);
+					}
 					log_notice("New state:");
 					print_ifinfo(p_head);
 				}
 				free(p_dat);
 				continue;
 			}
+
 		} else if (nh->nlmsg_type == RTM_DELLINK) {
 			// link deleted
 
-			ifdata_t *p_dat = get_ifdata(nh);
-			if (p_dat == NULL) {
-				log_debug("invalid interface data gotten: ignoring");
-				continue;
-			}
-
 			ifdata_t *p_res = find_ifdata(p_dat, p_head);
 			if (p_res == NULL) {
-				log_debug("no data found on downed interface!");
+				log_debug("no data found on removed interface!");
 			} else {
-				if ((strncmp(p_res->ifname, "tun", 3) == 0) ||
-					(strncmp(p_res->ifname, "tap", 3) == 0)) {
-					log_notice("\n--\nA VPN connection was severed\n--");
+				if (is_tun_or_tap(p_res->ifname)) {
+					log_notice("\n--\nA VPN interface was removed\n--");
 					if (file_write(VPN_DOWN) != 0) {
 						log_error("Failed to write to file");
 					}
@@ -208,8 +210,7 @@ int fetch_ifinfo(ifdata_t **head) {
 			if (nh->nlmsg_type == RTM_NEWLINK) {
 				ifdata_t *p_new = get_ifdata(nh);
 				add_ifdata(p_new, head);
-				if ((strncmp(p_new->ifname, "tun", 3) == 0) ||
-					(strncmp(p_new->ifname, "tap", 3) == 0)) {
+				if (p_new->up && (is_tun_or_tap(p_new->ifname))) {
 					got_vpn = 1;
 				}
 			} else if (nh->nlmsg_type == NLMSG_DONE) {
@@ -246,7 +247,7 @@ ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
 
 	ifi = (struct ifinfomsg *) NLMSG_DATA(hdr);
 	log_debug("~~~ interface %s ~~~ \n", if_indextoname(ifi->ifi_index, ifname));
-	if ((ifi->ifi_flags & IFF_UP) && (ifi->ifi_flags & (1<<16))) {
+	if ((ifi->ifi_flags & IFF_UP) && (ifi->ifi_flags & IFF_LOWER_UP)) {
 		log_debug("Device %d (%s) is  up!\n", ifi->ifi_index, ifname);
 		p_new->up = 1;
 	} else {
@@ -291,7 +292,7 @@ ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
 				log_debug("\nrx packets: %ul\ntx packets: %ul\nrx bytes: %ul\n" \
 					"tx bytes: %ul\nrx errors: %ul\ntx errors: %ul\nrx dropped: %ul\n" \
 					"tx dropped: %ul\n", stats->rx_packets, stats->tx_packets,
-				 	stats->rx_bytes, stats->tx_bytes, stats->rx_errors, stats->tx_errors,
+					stats->rx_bytes, stats->tx_bytes, stats->rx_errors, stats->tx_errors,
 					stats->rx_dropped, stats->tx_dropped);
 				break;
 			default:
@@ -354,6 +355,11 @@ ifdata_t *find_ifdata(ifdata_t *ifquery, ifdata_t *head) {
 		}
 	}
 	return NULL;
+}
+
+int is_tun_or_tap(const char *ifname) {
+	return ((strncmp(ifname, "tun", 3) == 0) ||
+		(strncmp(ifname, "tap", 3) == 0));
 }
 
 int file_write(int op) {

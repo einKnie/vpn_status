@@ -50,6 +50,8 @@ void del_ifdata(ifdata_t *p_del, ifdata_t **head);
 /// find full data of query in interfaces linked list
 ifdata_t *find_ifdata(ifdata_t *ifquery, ifdata_t *head);
 
+int is_tun_or_tap(const char *ifname);
+
 /// write the symbol to the file
 /// or remove it
 int file_write(int op);

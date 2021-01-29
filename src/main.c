@@ -15,7 +15,56 @@
 #include "vpn_status.h"
 #include "log.h"
 
-int main(void) {
+void print_help() {
+	log_notice("%s v.%d.%d", PROCNAME, VERSION, MINVERSION);
+	log_notice("keep track of your network interfaces");
+	log_notice("usage:");
+	log_notice("\tPROCNAME [options]");
+	log_notice("-f <path> ... log to file");
+	log_notice("-v        ... print debug output");
+	log_notice("-q        ... quiet, produces no output");
+	log_notice("-d        ... daemon mode; all logging goes to /tmp/%s.log", PROCNAME);
+	log_notice("-h        ... print this help message and exit");
+	log_notice("");
+}
+
+int main(int argc, char *argv[]) {
+	char logfile[PATH_MAX] = {'\0'};
+	logLevel_e loglevel = ELogVerbose;
+	log_init(loglevel, ELogStyleNone, NULL);
+
+	int opt;
+	while ((opt = getopt(argc, argv, "f:vdqh")) != -1) {
+		switch(opt) {
+			case 'f':
+				strncpy(logfile, optarg, sizeof(logfile));
+				log_notice("disabling output to stdout.\nlogfile may be read at %s\n", logfile);
+				break;
+			case 'v':
+				loglevel = ELogDebug;
+				break;
+			case 'd':
+				snprintf(logfile,  sizeof(logfile),  "/tmp/%s.log", PROCNAME);
+				log_notice("disabling output to stdout.\nlogfile may be read at %s\n", logfile);
+				break;
+			case 'q':
+				loglevel = ELogDisable;
+				break;
+			case 'h':
+				print_help();
+				exit(0);
+				break;
+			default:
+				log_error("invalid parameter: %c\n", opt); exit(1);
+		}
+	}
+
+	// init logging
+
+	if (!log_init(loglevel, ELogStyleVerbose, logfile)) {
+		printf("error: failed to initialize logging\n");
+		return 1;
+	}
 
 	ifdata_t *p_head = NULL;
 	if (init(&p_head) != 0) {

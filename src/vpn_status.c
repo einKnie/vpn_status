@@ -43,20 +43,14 @@ char g_datfile[PATH_MAX] = {'\0'};	///< path to data file
 
 /// Initialize vpn_status
 int init(ifdata_t **head) {
-	char logfile[PATH_MAX];
 	char *user = NULL;
+
+	// prepare data file
 	if ((user = getlogin()) == NULL) {
 		printf("error: cannot determine current user\n");
 		return 1;
 	}
-	snprintf(logfile,  sizeof(logfile),  "/tmp/%s.log", PROCNAME);
 	snprintf(g_datfile,  sizeof(g_datfile), "/home/%s/.%s", user, PROCNAME);
-
-	// init logging
-	if (!log_init(LOGLEVEL, ELogStyleVerbose, logfile)) {
-		printf("error: failed to initialize logging\n");
-		return 1;
-	}
 
 	// get current interface data
 	if (fetch_ifinfo(head) != 0) {

@@ -30,7 +30,7 @@ int log_init(logLevel_e level, logStyle_e style, const char* logfile) {
 	if (style <= ELogStyleVerbose)
 	log_style = style;
 
-	if (logfile == NULL) {
+	if ((logfile == NULL) || (strlen(logfile) == 0)) {
 		log_stdout = stdout;
 	} else {
 		log_stdout = fopen(logfile, "w");

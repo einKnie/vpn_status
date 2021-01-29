@@ -17,7 +17,8 @@
 // #define _DEBUG
 
 #define PROCNAME "vpn_status"
-#define VERSION 0.1
+#define VERSION 0
+#define MINVERSION 2
 
 #define VPN_UP 1
 #define VPN_DOWN 0
@@ -40,6 +41,7 @@ int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head);
 int fetch_ifinfo(ifdata_t **head);
 /// fetch single interface data from a netlink message
 ifdata_t *get_ifdata(struct nlmsghdr *hdr);
+
 
 /// print info on interfaces
 void print_ifinfo(ifdata_t *head);

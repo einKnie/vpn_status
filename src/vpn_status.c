@@ -15,13 +15,7 @@
 #include "log.h"
 #include "vpn_status.h"
 
-#ifndef _DEBUG
-#	define LOGLEVEL ELogVerbose
-#else
-#	define LOGLEVEL ELogDebug
-#endif
-
-// for some reason this ifi flagis not defined even though it should be
+// for some reason this ifi flag is not defined even though it should be
 #ifndef IFF_LOWER_UP
 #	define IFF_LOWER_UP (1<<16)
 #endif
@@ -37,6 +31,9 @@
 
 //	todo:
 //		* allow arbitrary action
+//		* actual ui (maybe w/ curses)
+//		* actions settable for different interfaces (per name or mac))
+//		* config via configfile
 //
 
 char g_datfile[PATH_MAX] = {'\0'};	///< path to data file

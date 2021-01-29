@@ -14,8 +14,6 @@
 
 #include <net/if.h>
 
-// #define _DEBUG
-
 #define PROCNAME "vpn_status"
 #define VERSION 0
 #define MINVERSION 2
@@ -52,6 +50,8 @@ void del_ifdata(ifdata_t *p_del, ifdata_t **head);
 /// find full data of query in interfaces linked list
 ifdata_t *find_ifdata(ifdata_t *ifquery, ifdata_t *head);
 
+// check if device is tun or tap
+// return 1 if yes, 0 if no
 int is_tun_or_tap(const char *ifname);
 
 /// write the symbol to the file

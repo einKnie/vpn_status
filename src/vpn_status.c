@@ -1,13 +1,13 @@
 /*                          _        _
- *                         | |      | |
- * __   ___ __  _ __    ___| |_ __ _| |_ _   _ ___
- * \ \ / / '_ \| '_ \  / __| __/ _` | __| | | / __|
- *  \ V /| |_) | | | | \__ \ || (_| | |_| |_| \__ \
- *   \_/ | .__/|_| |_| |___/\__\__,_|\__|\__,_|___/
- *       | |
- *       |_|  <einKnie@gmx.at>
- *
- */
+*                         | |      | |
+* __   ___ __  _ __    ___| |_ __ _| |_ _   _ ___
+* \ \ / / '_ \| '_ \  / __| __/ _` | __| | | / __|
+*  \ V /| |_) | | | | \__ \ || (_| | |_| |_| \__ \
+*   \_/ | .__/|_| |_| |___/\__\__,_|\__|\__,_|___/
+*       | |
+*       |_|  <einKnie@gmx.at>
+*
+*/
 
 #include <linux/rtnetlink.h>
 #include <string.h>
@@ -34,13 +34,13 @@ char g_datfile[PATH_MAX] = {'\0'};	///< path to data file
 /// Initialize vpn_status
 int init(ifdata_t **head) {
 	char logfile[PATH_MAX];
-  char *user = NULL;
-  if ((user = getlogin()) == NULL) {
-    printf("error: cannot determine current user\n");
-    return 1;
-  }
+	char *user = NULL;
+	if ((user = getlogin()) == NULL) {
+		printf("error: cannot determine current user\n");
+		return 1;
+	}
 	snprintf(logfile,  sizeof(logfile),  "/tmp/%s.log", PROCNAME);
-  snprintf(g_datfile,  sizeof(g_datfile), "/home/%s/.%s", user, PROCNAME);
+	snprintf(g_datfile,  sizeof(g_datfile), "/home/%s/.%s", user, PROCNAME);
 
 	// init logging
 	if (!log_init(ELogVerbose, ELogStyleVerbose, logfile)) {
@@ -77,7 +77,7 @@ int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head) {
 			if (p_res == NULL) {
 				add_ifdata(p_dat, &p_head);
 				if ((strncmp(p_dat->ifname, "tun", 3) == 0) ||
-						(strncmp(p_dat->ifname, "tap", 3) == 0)) {
+					(strncmp(p_dat->ifname, "tap", 3) == 0)) {
 					log_notice("\n--\nA VPN connection was added\n--");
 					if (file_write(VPN_UP) != 0) {
 						log_error("Failed to write to file");
@@ -108,7 +108,7 @@ int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head) {
 				log_debug("no data found on downed interface!");
 			} else {
 				if ((strncmp(p_res->ifname, "tun", 3) == 0) ||
-						(strncmp(p_res->ifname, "tap", 3) == 0)) {
+					(strncmp(p_res->ifname, "tap", 3) == 0)) {
 					log_notice("\n--\nA VPN connection was severed\n--");
 					if (file_write(VPN_DOWN) != 0) {
 						log_error("Failed to write to file");
@@ -158,17 +158,17 @@ int fetch_ifinfo(ifdata_t **head) {
 	ssize_t n;
 
 	// Prepare address request for the kernel
-	request.nh.nlmsg_len 			= NLMSG_LENGTH(sizeof(request.rtg));
-	request.nh.nlmsg_type 		= RTM_GETLINK;
-	request.nh.nlmsg_flags 		= NLM_F_REQUEST | NLM_F_DUMP;
-	request.rtg.rtgen_family 	= AF_PACKET;
+	request.nh.nlmsg_len      = NLMSG_LENGTH(sizeof(request.rtg));
+	request.nh.nlmsg_type     = RTM_GETLINK;
+	request.nh.nlmsg_flags    = NLM_F_REQUEST | NLM_F_DUMP;
+	request.rtg.rtgen_family  = AF_PACKET;
 
-	iov.iov_base 		= &request;
-	iov.iov_len 		= request.nh.nlmsg_len;
-	msg.msg_name 		= &dest_addr;
+	iov.iov_base    = &request;
+	iov.iov_len     = request.nh.nlmsg_len;
+	msg.msg_name    = &dest_addr;
 	msg.msg_namelen = sizeof(dest_addr);
-	msg.msg_iov 		= &iov;
-	msg.msg_iovlen 	= 1;
+	msg.msg_iov     = &iov;
+	msg.msg_iovlen  = 1;
 
 	// Send the request message
 	if (sendmsg(nl_sock, (struct msghdr *) &msg, 0) < 0) {
@@ -198,7 +198,7 @@ int fetch_ifinfo(ifdata_t **head) {
 				ifdata_t *p_new = get_ifdata(nh);
 				add_ifdata(p_new, head);
 				if ((strncmp(p_new->ifname, "tun", 3) == 0) ||
-						(strncmp(p_new->ifname, "tap", 3) == 0)) {
+					(strncmp(p_new->ifname, "tap", 3) == 0)) {
 					got_vpn = 1;
 				}
 			} else if (nh->nlmsg_type == NLMSG_DONE) {
@@ -238,12 +238,12 @@ ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
 			case IFLA_ADDRESS:
 				ptr = (unsigned char *) RTA_DATA(attr);
 				snprintf(p_new->mac, sizeof(p_new->mac),
-									"%02x:%02x:%02x:%02x:%02x:%02x",
-									ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5]);
+					"%02x:%02x:%02x:%02x:%02x:%02x",
+					ptr[0], ptr[1], ptr[2], ptr[3], ptr[4], ptr[5]);
 				break;
 			case IFLA_IFNAME:
 				snprintf(p_new->ifname, sizeof(p_new->ifname),
-									"%s", (char *)RTA_DATA(attr));
+					"%s", (char *)RTA_DATA(attr));
 				break;
 			default:
 				break;
@@ -252,7 +252,7 @@ ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
 
 	if (strlen(p_new->ifname) == 0) {
 		log_debug("no usable interface data gatered, ignoring %7s:%s",
-								p_new->ifname, p_new->mac);
+			p_new->ifname, p_new->mac);
 		free(p_new);
 		p_new = NULL;
 	}
@@ -260,9 +260,9 @@ ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
 }
 
 void print_ifinfo(ifdata_t *head) {
-		for (ifdata_t *p_tmp = head; p_tmp != NULL; p_tmp = p_tmp->next) {
-			log_notice("%-12s: %s", p_tmp->ifname, p_tmp->mac);
-		}
+	for (ifdata_t *p_tmp = head; p_tmp != NULL; p_tmp = p_tmp->next) {
+		log_notice("%-12s: %s", p_tmp->ifname, p_tmp->mac);
+	}
 }
 
 void add_ifdata(ifdata_t *p_new, ifdata_t **head) {
@@ -298,7 +298,7 @@ ifdata_t *find_ifdata(ifdata_t *ifquery, ifdata_t *head) {
 	// if either matches, return this interface's full data
 	for (ifdata_t *p_tmp = head; p_tmp != NULL; p_tmp = p_tmp->next) {
 		if ((strncmp(p_tmp->ifname, ifquery->ifname, sizeof(p_tmp->ifname)) == 0) ||
-				(strncmp(p_tmp->mac, ifquery->mac, sizeof(p_tmp->mac)) == 0)) {
+			(strncmp(p_tmp->mac, ifquery->mac, sizeof(p_tmp->mac)) == 0)) {
 			log_debug("found matching interface: %s", p_tmp->ifname);
 			return p_tmp;
 		}

@@ -38,12 +38,12 @@ void print_help() {
 int main(int argc, char *argv[]) {
 
 	// set exit handlers
-  struct sigaction act;
-  memset(&act, 0, sizeof(act));
-  act.sa_handler = sigHdl;
-  sigaction(SIGINT, &act, 0);
-  sigaction(SIGTERM, &act, 0);
-  atexit(cleanup);
+	struct sigaction act;
+	memset(&act, 0, sizeof(act));
+	act.sa_handler = sigHdl;
+	sigaction(SIGINT, &act, 0);
+	sigaction(SIGTERM, &act, 0);
+	atexit(cleanup);
 
 	// init preliminary logger
 	char logfile[PATH_MAX] = {'\0'};

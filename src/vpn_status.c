@@ -19,7 +19,9 @@
 #ifndef IFF_LOWER_UP
 #	define IFF_LOWER_UP (1<<16)
 #endif
-
+#ifndef IFF_DORMANT
+#	define IFF_DORMANT (1<<17)
+#endif
 ///////////////////////
 // VPN STATUS /////////
 ///////////////////////
@@ -30,6 +32,7 @@
 //
 
 //	todo:
+//		* actually detect if an interface is down
 //		* allow arbitrary action
 //		* actual ui (maybe w/ curses)
 //		* actions settable for different interfaces (per name or mac))
@@ -125,6 +128,8 @@ int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head) {
 			free(p_dat);
 
 
+		} else if (nh->nlmsg_type == RTM_GETLINK) {
+			log_error("got a getlink meesage!\n\n");
 		}
 		log_notice("New state:");
 		print_ifinfo(p_head);
@@ -183,10 +188,10 @@ int fetch_ifinfo(ifdata_t **head) {
 
 	// Prepare iovec for the response
 	memset(&iov, 0, sizeof(iov));
-	iov.iov_base 	= buffer;
-	iov.iov_len 	= sizeof(buffer);
+	iov.iov_base  = buffer;
+	iov.iov_len   = sizeof(buffer);
 
-	int done = 0;
+	int done    = 0;
 	int got_vpn = 0;
 	while (!done) {
 		// Receive the response from netlink
@@ -221,10 +226,10 @@ int fetch_ifinfo(ifdata_t **head) {
 }
 
 ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
-	struct ifinfomsg *ifi;
-	struct rtattr *attr;
-	ssize_t attr_len;
-	unsigned char *ptr = NULL;
+	struct ifinfomsg *ifi = NULL;
+	struct rtattr *attr   = NULL;
+	ssize_t attr_len      = 0;
+	unsigned char *ptr    = NULL;
 
 	// prepare new ifdata struct
 	ifdata_t *p_new = (ifdata_t*)malloc(sizeof(ifdata_t));
@@ -238,13 +243,15 @@ ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
 
 	ifi = (struct ifinfomsg *) NLMSG_DATA(hdr);
 	log_debug("~~~ interface %s ~~~ \n", if_indextoname(ifi->ifi_index, ifname));
-	if ((ifi->ifi_flags & IFF_UP) && (ifi->ifi_flags & IFF_LOWER_UP)) {
-		log_debug("Device %d (%s) is  up!\n", ifi->ifi_index, ifname);
-		p_new->up = 1;
-	} else {
-		log_debug("Device %d (%s) is  down!\n", ifi->ifi_index, ifname);
-		p_new->up = 0;
-	}
+	log_debug("flags:");
+	log_debug("IFF_UP: %s", (ifi->ifi_flags & IFF_UP) ? "yes" : "no");
+	log_debug("IFF_LOWER_UP: %s", (ifi->ifi_flags & IFF_LOWER_UP) ? "yes" : "no");
+	log_debug("!IFF_DORMANT: %s", (ifi->ifi_flags ^ IFF_DORMANT) ? "yes" : "no");
+	log_debug("IFF_RUNNING: %s", (ifi->ifi_flags & IFF_RUNNING) ? "yes" : "no");
+
+	p_new->up = (ifi->ifi_flags & IFF_RUNNING) ? 1 : 0;
+	log_debug("Device %d (%s) is  %s!", ifi->ifi_index, ifname, p_new->up ? "up" : "down");
+
 	attr = IFLA_RTA(ifi);
 	attr_len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
 	for (; RTA_OK(attr, attr_len); attr = RTA_NEXT(attr, attr_len)) {
@@ -260,34 +267,55 @@ ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
 					"%s", (char *)RTA_DATA(attr));
 				break;
 			case IFLA_LINK:
-				log_debug("got link status (maybe): %d\n", (char*)RTA_DATA(attr));
+				log_debug("got link status (maybe): %d", (char*)RTA_DATA(attr));
 				break;
 			case IFLA_TXQLEN:
-				log_debug("got TX queue length\n");
+				log_debug("got TX queue length");
 				break;
-			case IFLA_OPERSTATE:
-				log_debug("got operation state %d\n", (char*)RTA_DATA(attr));
+			case IFLA_OPERSTATE: {
+				int oper_state = *(int*)RTA_DATA(attr);
+				log_debug("got operation state %d", oper_state);
+				if (oper_state == 6) {
+					log_debug("interface %s is operational", ifname);
+				} else if (oper_state == 5) {
+					log_debug("interface %s might be dormant", ifname);
+				} else {
+					log_debug("interface %s may not be operational", ifname);
+				}
+				break;
+			}
+			case IFLA_PROMISCUITY:
+				log_debug("got promiscuity: %d", *(int*)RTA_DATA(attr));
+				break;
+			case IFLA_CARRIER:
+				log_debug("got carrier: %s", (char*)RTA_DATA(attr));
+				break;
+			case IFLA_CARRIER_CHANGES:
+				log_debug("got carrier changes(?): %s", (char*)RTA_DATA(attr));
 				break;
 			case IFLA_LINKMODE:
-				log_debug("got link: %d\n", (int*)RTA_DATA(attr));
+				log_debug("got link: %d", *(int*)RTA_DATA(attr));
+				break;
+			case IFLA_PROTO_DOWN:
+				log_debug("got proto down: %d", *(int*)RTA_DATA(attr));
 				break;
 			case IFLA_MTU:
-				log_debug("got MTU\n");
+				log_debug("got MTU");
 				break;
 			case IFLA_GROUP:
-				log_debug("got group: %s\n", (char *)RTA_DATA(attr));
+				log_debug("got group: %s", (char *)RTA_DATA(attr));
 				break;
 			case IFLA_STATS:
-				log_debug("Got stats!\n");
+				log_debug("Got stats!");
 				struct rtnl_link_stats *stats = (struct rtnl_link_stats*)RTA_DATA(attr);
 				log_debug("\nrx packets: %ul\ntx packets: %ul\nrx bytes: %ul\n" \
 					"tx bytes: %ul\nrx errors: %ul\ntx errors: %ul\nrx dropped: %ul\n" \
-					"tx dropped: %ul\n", stats->rx_packets, stats->tx_packets,
+					"tx dropped: %ul", stats->rx_packets, stats->tx_packets,
 					stats->rx_bytes, stats->tx_bytes, stats->rx_errors, stats->tx_errors,
 					stats->rx_dropped, stats->tx_dropped);
 				break;
 			default:
-				log_debug("got something else: rta_type: %d : %d\n", attr->rta_type, (char*)RTA_DATA(attr));
+				// log_debug("got something else: rta_type: %d : %d", attr->rta_type, (char*)RTA_DATA(attr));
 				break;
 		}
 	}

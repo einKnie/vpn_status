@@ -6,9 +6,9 @@
 #include "string.h"
 
 // file global logger configuration. Change log target via log_init() & log_exit()
-logLevel_e log_level = ELogError;
-logStyle_e log_style = ELogStyleMinimal;
-FILE *log_stdout = NULL;
+logLevel_e log_level = LOGLEVEL_DEFAULT;
+logStyle_e log_style = LOGSTYLE_DEFAULT;
+FILE      *log_stdout = NULL;
 
 /// @brief Initialize logger. Must be called before first logging attempt
 /// @param level a loglevel
@@ -24,11 +24,17 @@ int log_init(logLevel_e level, logStyle_e style, const char* logfile) {
 		return EErr;
 	}
 
-	if (level <= ELogDebug)
-	log_level = level;
+	if (level <= ELogDebug) {
+		log_level = level;
+	} else {
+		printf("invalid loglevel. using default\n");
+	}
 
-	if (style <= ELogStyleVerbose)
-	log_style = style;
+	if (style <= ELogStyleVerbose) {
+		log_style = style;
+	} else {
+		printf("invalid logstyle. using default\n");
+	}
 
 	if ((logfile == NULL) || (strlen(logfile) == 0)) {
 		log_stdout = stdout;
@@ -53,8 +59,8 @@ int log_exit() {
 	if (log_stdout == NULL)
 	return ENoErr;
 
-	log_level = ELogError;
-	log_style = ELogStyleMinimal;
+	log_level = LOGLEVEL_DEFAULT;
+	log_style = LOGSTYLE_DEFAULT;
 
 	// close log_stdout
 	if (log_stdout == stdout) {

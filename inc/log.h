@@ -17,6 +17,9 @@
 #define ASCII_LOWER_START 97
 #define ASCII_LOWER_END   122
 
+#define LOGLEVEL_DEFAULT ELogVerbose
+#define LOGSTYLE_DEFAULT ELogStyleVerbose
+
 enum { EErr = 0, ENoErr }; ///< Return values
 typedef enum {
 	ELogDisable = 0, ///< no logging

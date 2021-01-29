@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	ifdata_t *g_head = NULL;
+	g_head = NULL;
 	if (init(&g_head) != 0) {
 		printf("error: failed to initialize\n");
 		exit(1);
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
 	print_ifinfo(g_head);
 
 	// open and bind netlink socket
-	int g_sock = -1;
+	g_sock = -1;
 	struct sockaddr_nl sa = {AF_NETLINK, 0, 0, RTNLGRP_LINK};
 
 	if ((g_sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE)) < 0) {
@@ -129,7 +129,6 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
-
 
 	return 0;
 }

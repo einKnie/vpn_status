@@ -15,6 +15,12 @@
 #include "log.h"
 #include "vpn_status.h"
 
+#ifndef _DEBUG
+#	define LOGLEVEL ELogVerbose
+#else
+#	define LOGLEVEL ELogDebug
+#endif
+
 ///////////////////////
 // VPN STATUS /////////
 ///////////////////////
@@ -26,8 +32,7 @@
 
 //	todo:
 //		* allow arbitrary action
-//		* maybe also check whether
-//			interfaces are up
+//
 
 char g_datfile[PATH_MAX] = {'\0'};	///< path to data file
 
@@ -43,7 +48,7 @@ int init(ifdata_t **head) {
 	snprintf(g_datfile,  sizeof(g_datfile), "/home/%s/.%s", user, PROCNAME);
 
 	// init logging
-	if (!log_init(ELogVerbose, ELogStyleVerbose, logfile)) {
+	if (!log_init(LOGLEVEL, ELogStyleVerbose, logfile)) {
 		printf("error: failed to initialize logging\n");
 		return 1;
 	}
@@ -87,10 +92,15 @@ int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head) {
 				log_notice("Interface added:");
 				log_notice("%-12s: %s", p_dat->ifname, p_dat->mac);
 
-				log_notice("New state:");
-				print_ifinfo(p_head);
 			} else {
-				log_debug("Changes detected on interface %s:%s", p_res->ifname, p_res->mac);
+				log_notice("Changes detected on interface %s:%s (%c)",
+					p_res->ifname, p_res->mac, p_dat->up ? 'o' : 'x');
+
+				if (p_res->up != p_dat->up) {
+					p_res->up = p_dat->up;
+					log_notice("New state:");
+					print_ifinfo(p_head);
+				}
 				free(p_dat);
 				continue;
 			}
@@ -121,9 +131,10 @@ int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head) {
 			log_notice("%-12s: %s", p_dat->ifname, p_dat->mac);
 			free(p_dat);
 
-			log_notice("New state:");
-			print_ifinfo(p_head);
+
 		}
+		log_notice("New state:");
+		print_ifinfo(p_head);
 	}
 	return 0;
 }
@@ -227,10 +238,21 @@ ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
 	ifdata_t *p_new = (ifdata_t*)malloc(sizeof(ifdata_t));
 	memset(p_new->ifname, '\0', sizeof(p_new->ifname));
 	memset(p_new->mac, '\0', sizeof(p_new->mac));
+	p_new->up = -1;
 	p_new->next = NULL;
 	p_new->prev = NULL;
 
+	char ifname[IFNAMSIZ] = {'\0'};
+
 	ifi = (struct ifinfomsg *) NLMSG_DATA(hdr);
+	log_debug("~~~ interface %s ~~~ \n", if_indextoname(ifi->ifi_index, ifname));
+	if ((ifi->ifi_flags & IFF_UP) && (ifi->ifi_flags & (1<<16))) {
+		log_debug("Device %d (%s) is  up!\n", ifi->ifi_index, ifname);
+		p_new->up = 1;
+	} else {
+		log_debug("Device %d (%s) is  down!\n", ifi->ifi_index, ifname);
+		p_new->up = 0;
+	}
 	attr = IFLA_RTA(ifi);
 	attr_len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
 	for (; RTA_OK(attr, attr_len); attr = RTA_NEXT(attr, attr_len)) {
@@ -245,7 +267,35 @@ ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
 				snprintf(p_new->ifname, sizeof(p_new->ifname),
 					"%s", (char *)RTA_DATA(attr));
 				break;
+			case IFLA_LINK:
+				log_debug("got link status (maybe): %d\n", (char*)RTA_DATA(attr));
+				break;
+			case IFLA_TXQLEN:
+				log_debug("got TX queue length\n");
+				break;
+			case IFLA_OPERSTATE:
+				log_debug("got operation state %d\n", (char*)RTA_DATA(attr));
+				break;
+			case IFLA_LINKMODE:
+				log_debug("got link: %d\n", (int*)RTA_DATA(attr));
+				break;
+			case IFLA_MTU:
+				log_debug("got MTU\n");
+				break;
+			case IFLA_GROUP:
+				log_debug("got group: %s\n", (char *)RTA_DATA(attr));
+				break;
+			case IFLA_STATS:
+				log_debug("Got stats!\n");
+				struct rtnl_link_stats *stats = (struct rtnl_link_stats*)RTA_DATA(attr);
+				log_debug("\nrx packets: %ul\ntx packets: %ul\nrx bytes: %ul\n" \
+					"tx bytes: %ul\nrx errors: %ul\ntx errors: %ul\nrx dropped: %ul\n" \
+					"tx dropped: %ul\n", stats->rx_packets, stats->tx_packets,
+				 	stats->rx_bytes, stats->tx_bytes, stats->rx_errors, stats->tx_errors,
+					stats->rx_dropped, stats->tx_dropped);
+				break;
 			default:
+				log_debug("got something else: rta_type: %d : %d\n", attr->rta_type, (char*)RTA_DATA(attr));
 				break;
 		}
 	}
@@ -261,7 +311,7 @@ ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
 
 void print_ifinfo(ifdata_t *head) {
 	for (ifdata_t *p_tmp = head; p_tmp != NULL; p_tmp = p_tmp->next) {
-		log_notice("%-12s: %s", p_tmp->ifname, p_tmp->mac);
+		log_notice("%c | %-12s: %s", (p_tmp->up ? 'o' : 'x'), p_tmp->ifname, p_tmp->mac);
 	}
 }
 

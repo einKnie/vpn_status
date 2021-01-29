@@ -14,6 +14,8 @@
 
 #include <net/if.h>
 
+// #define _DEBUG
+
 #define PROCNAME "vpn_status"
 #define VERSION 0.1
 
@@ -25,6 +27,7 @@
 typedef struct ifdata {
 	char ifname[IFNAMSIZ];
 	char mac[64];
+	int  up;
 	struct ifdata *next;
 	struct ifdata *prev;
 } ifdata_t;

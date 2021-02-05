@@ -22,6 +22,7 @@ int g_sock = -1;
 
 void cleanup(void);
 void sigHdl(const int signum);
+void do_resize(int sig);
 
 void print_help() {
 	log_notice("%s v.%d.%d", PROCNAME, VERSION, MINVERSION);
@@ -112,13 +113,15 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (f_daemon) {
-		// daemonize
+		// todo: daemonize
 	} else if (f_monitor) {
 		// init curses lib
 		if (initscreen() != 0) {
 			log_error("failed to initialize monitoring screen");
 			return 1;
 		}
+		// set signal handler for terminal resize
+		signal(SIGWINCH, do_resize);
 	}
 
 	g_head = NULL;
@@ -129,7 +132,7 @@ int main(int argc, char *argv[]) {
 
 	log_notice("Got current interface data:");
 	print_ifinfo(g_head);
-	updatescreen(g_head);
+	updatewindow(g_head);
 
 	// open and bind netlink socket
 	g_sock = -1;
@@ -167,12 +170,21 @@ int main(int argc, char *argv[]) {
 			} else {
 				nl_buf[buflen-1] = '\0';
 				parse_nlmsg(nl_buf, buflen, g_head);
-				updatescreen(g_head);
 			}
 		}
+		updatewindow(g_head);
 	}
 
 	return 0;
+}
+
+void do_resize(int sig) {
+	(void)sig;
+	log_debug("window size changed");
+	// exitscreen();
+	// initscreen();
+	resizewindows();
+	updatewindow(g_head);
 }
 
 // ----- cleanup ---

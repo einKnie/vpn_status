@@ -12,12 +12,24 @@
 #ifndef _VPN_IO_H_
 #define _VPN_IO_H_
 
+#include <curses.h>
 #include "vpn_status.h"
 #include "log.h"
 
+typedef struct {
+	int startx;
+	int starty;
+	int height;
+	int width;
+	WINDOW *win;
+} windata_t;
+
 // initialize screen with curses lib
 int initscreen(void);
+int initwindows(int x, int y);
 int exitscreen(void);
-int updatescreen(ifdata_t *head);
+int updatewindow(ifdata_t *head);
+
+int resizewindows();
 
 #endif // _VPN_IO_H_

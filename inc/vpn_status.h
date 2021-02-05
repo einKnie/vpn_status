@@ -12,6 +12,7 @@
 #ifndef _VPN_STATUS_H_
 #define _VPN_STATUS_H_
 
+#include <linux/rtnetlink.h>
 #include <net/if.h>
 
 #define PROCNAME "vpn_status"

@@ -9,7 +9,6 @@
 *
 */
 
-#include <linux/rtnetlink.h>
 #include <string.h>
 #include <errno.h>
 #include "log.h"
@@ -32,7 +31,6 @@
 //
 
 //	todo:
-//		* actually detect if an interface is down
 //		* allow arbitrary action
 //		* actual ui (maybe w/ curses)
 //		* actions settable for different interfaces (per name or mac))
@@ -47,7 +45,7 @@ int init(ifdata_t **head) {
 
 	// prepare data file
 	if ((user = getlogin()) == NULL) {
-		printf("error: cannot determine current user\n");
+		log_error("error: cannot determine current user\n");
 		return 1;
 	}
 	snprintf(g_datfile,  sizeof(g_datfile), "/home/%s/.%s", user, PROCNAME);

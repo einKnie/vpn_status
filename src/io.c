@@ -55,22 +55,18 @@ int initscreen() {
 
 int initwindows(int x, int y) {
 
-	if (g_mainwin.win != NULL) {
-		delwin(g_mainwin.win);
-		g_mainwin.win = NULL;
-	}
-
-	if (g_innerwin.win != NULL) {
-		delwin(g_innerwin.win);
-		g_innerwin.win = NULL;
-	}
-
 	g_mainwin.startx = 0;
 	g_mainwin.starty = 0;
 	g_mainwin.height = y;
 	g_mainwin.width  = x;
-	g_mainwin.win = newwin(g_mainwin.height, g_mainwin.width,
-		g_mainwin.starty, g_mainwin.startx);
+
+	if (g_mainwin.win == NULL) {
+		g_mainwin.win = newwin(g_mainwin.height, g_mainwin.width,
+			g_mainwin.starty, g_mainwin.startx);
+	} else {
+		wresize(g_mainwin.win, g_mainwin.height, g_mainwin.width);
+	}
+
 	box(g_mainwin.win, 0, 0);
 	wrefresh(g_mainwin.win);
 
@@ -78,24 +74,31 @@ int initwindows(int x, int y) {
 	g_innerwin.starty = g_mainwin.starty + 1;
 	g_innerwin.height = g_mainwin.height - 2;
 	g_innerwin.width  = g_mainwin.width  - 4;
-	g_innerwin.win = subwin(g_mainwin.win, g_innerwin.height, g_innerwin.width,
-		g_innerwin.starty, g_innerwin.startx);
-	wrefresh(g_innerwin.win);
 
+	if (g_innerwin.win == NULL) {
+		g_innerwin.win = subwin(g_mainwin.win, g_innerwin.height, g_innerwin.width,
+			g_innerwin.starty, g_innerwin.startx);
+	} else {
+		wresize(g_innerwin.win, g_innerwin.height, g_innerwin.width);
+	}
+
+	wrefresh(g_innerwin.win);
 	return 0;
 }
 
 // is all of this really necessary?
 // todo: all the error checking
 int resizewindows() {
-	int x,y;
-	exitscreen();
-	initscreen();
-	getmaxyx(stdscr, y, x);
-	resizeterm(y, x);
-	log_debug("prev window size: %d/%d", g_mainwin.width, g_mainwin.height);
-	log_debug("new window size: %d/%d", x, y);
-	initwindows(x, y);
+	// int x,y;
+	endwin();
+	refresh();
+	// getmaxyx(stdscr, y, x);
+	// resizeterm(y, x);
+	// log_debug("prev window size: %d/%d", g_mainwin.width, g_mainwin.height);
+	// log_debug("new window size: %d/%d", x, y);
+	// log_debug("env vars: %d/%d", COLS, LINES);
+	// initwindows(x, y);
+	initwindows(COLS, LINES); // after endwin && refresh, COLS and LINES are updated, no need for getmaxyx
 	return 0;
 }
 
@@ -121,6 +124,12 @@ int updatewindow(ifdata_t *head) {
 		return 0;
 	}
 
+	// pretty sure this can be optimized
+	// but i need a wy to erase mainwin in case of  screen resize
+	werase(g_mainwin.win);
+	werase(g_innerwin.win);
+	box(g_mainwin.win, 0, 0);
+
 	for (ifdata_t *p_tmp = head; p_tmp != NULL; p_tmp = p_tmp->next) {
 		if (p_tmp->up) {
 			waddch(g_innerwin.win, 'o' | A_BOLD | COLOR_PAIR(2));
@@ -130,8 +139,9 @@ int updatewindow(ifdata_t *head) {
 		wprintw(g_innerwin.win, " | %-12s: %s\n", p_tmp->ifname, p_tmp->mac);
 	}
 
-	wrefresh(g_mainwin.win);
-	wrefresh(g_innerwin.win);
+	wnoutrefresh(g_mainwin.win);
+	wnoutrefresh(g_innerwin.win);
+	doupdate();
 	log_debug("screen updated");
 	return 0;
 }

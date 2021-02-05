@@ -181,10 +181,7 @@ int main(int argc, char *argv[]) {
 void do_resize(int sig) {
 	(void)sig;
 	log_debug("window size changed");
-	// exitscreen();
-	// initscreen();
 	resizewindows();
-	updatewindow(g_head);
 }
 
 // ----- cleanup ---

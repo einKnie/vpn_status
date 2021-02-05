@@ -6,7 +6,9 @@ OBJ_DIR     = $(TARGET_DIR)/obj
 TARGET      = vpn_status
 
 CXX = gcc
-CFLAGS = -Wall -Wextra -Werror -pedantic-errors -g -I$(INC_DIR)
+LIBS = -lncurses
+CFLAGS = -Wall -Wextra -Werror -pedantic-errors -g -I$(INC_DIR) $(LIBS)
+
 
 SRCS       := $(wildcard $(SRC_DIR)/*.c)
 OBJ         = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRCS))

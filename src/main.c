@@ -9,12 +9,12 @@
 *
 */
 
-#include <linux/rtnetlink.h>
 #include <string.h>
 #include <poll.h>
 #include <signal.h>
 #include "vpn_status.h"
 #include "log.h"
+#include "io.h"
 
 // these need to be global for cleanup
 ifdata_t *g_head = NULL;
@@ -33,6 +33,7 @@ void print_help() {
 	log_notice("-q         ... quiet mode; all logging goes to /tmp/%s.log", PROCNAME);
 	log_notice("-u <cmd>   ... set script to call when vpn is detected up");
 	log_notice("-d <cmd>   ... set script to call when vpn is detected down");
+	log_notice("-m         ... monitor mode; logging to /tmp/%s.log, if info to stdout w/ ncurses", PROCNAME);
 	log_notice("-h         ... print this help message and exit");
 	log_notice("");
 }
@@ -55,8 +56,12 @@ int main(int argc, char *argv[]) {
 	logLevel_e loglevel = ELogVerbose;
 	log_init(loglevel, ELogStyleNone, NULL);
 
+
+	int f_daemon  = 0;
+	int f_monitor = 0;
+
 	int opt;
-	while ((opt = getopt(argc, argv, "f:v:u:d:qh")) != -1) {
+	while ((opt = getopt(argc, argv, "f:v:u:d:qmh")) != -1) {
 		switch(opt) {
 			case 'f':
 				strncpy(logfile, optarg, sizeof(logfile));
@@ -67,6 +72,7 @@ int main(int argc, char *argv[]) {
 				loglevel = (logLevel_e)atoi(optarg);
 				break;
 			case 'q':
+				f_daemon = 1;
 				snprintf(logfile,  sizeof(logfile),  "/tmp/%s.log", PROCNAME);
 				log_notice("disabling output to stdout.");
 				log_notice("logfile may be read at %s", logfile);
@@ -78,6 +84,11 @@ int main(int argc, char *argv[]) {
 			case 'd':
 				strncpy(downscript, optarg, sizeof(downscript));
 				log_notice("will call %s when vpn is down", downscript);
+			case 'm':
+				f_monitor = 1;
+				snprintf(logfile,  sizeof(logfile),  "/tmp/%s.log", PROCNAME);
+				log_notice("enabling monitor mode");
+				log_notice("logfile may be read at %s", logfile);
 				break;
 			case 'h':
 				print_help();
@@ -88,10 +99,26 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	// check params
+	if (f_daemon && f_monitor) {
+		log_error("cannot be daemon and monitor at the same time");
+		return 1;
+	}
+
 	// init logging
 	if (!log_init(loglevel, ELogStyleVerbose, logfile)) {
 		printf("error: failed to initialize logging\n");
 		return 1;
+	}
+
+	if (f_daemon) {
+		// daemonize
+	} else if (f_monitor) {
+		// init curses lib
+		if (initscreen() != 0) {
+			log_error("failed to initialize monitoring screen");
+			return 1;
+		}
 	}
 
 	g_head = NULL;
@@ -102,6 +129,7 @@ int main(int argc, char *argv[]) {
 
 	log_notice("Got current interface data:");
 	print_ifinfo(g_head);
+	updatescreen(g_head);
 
 	// open and bind netlink socket
 	g_sock = -1;
@@ -139,6 +167,7 @@ int main(int argc, char *argv[]) {
 			} else {
 				nl_buf[buflen-1] = '\0';
 				parse_nlmsg(nl_buf, buflen, g_head);
+				updatescreen(g_head);
 			}
 		}
 	}
@@ -153,7 +182,9 @@ void sigHdl(const int signum) {
 }
 
 void cleanup(void) {
-	// cleanup
+	// exit ncursrs if necessary
+	exitscreen();
+
 	for (ifdata_t *p_tmp = g_head; p_tmp != NULL; ) {
 		ifdata_t *p_del = p_tmp;
 		p_tmp = p_tmp->next;

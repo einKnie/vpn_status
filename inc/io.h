@@ -24,11 +24,15 @@ typedef struct {
 	WINDOW *win;
 } windata_t;
 
+#define LINESTART 0
+#define NAMESTART 4
+
 // initialize screen with curses lib
 int initscreen(void);
 int initwindows(int x, int y);
 int exitscreen(void);
 int updatewindow(ifdata_t *head);
+int writewindow(ifdata_t *head);
 
 int resizewindows();
 

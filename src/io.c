@@ -10,6 +10,7 @@
 */
 
 #include "io.h"
+#include <string.h>
 /*
 	implement output w/ ncurses
 	* logging should still go to file
@@ -89,16 +90,9 @@ int initwindows(int x, int y) {
 // is all of this really necessary?
 // todo: all the error checking
 int resizewindows() {
-	// int x,y;
 	endwin();
 	refresh();
-	// getmaxyx(stdscr, y, x);
-	// resizeterm(y, x);
-	// log_debug("prev window size: %d/%d", g_mainwin.width, g_mainwin.height);
-	// log_debug("new window size: %d/%d", x, y);
-	// log_debug("env vars: %d/%d", COLS, LINES);
-	// initwindows(x, y);
-	initwindows(COLS, LINES); // after endwin && refresh, COLS and LINES are updated, no need for getmaxyx
+	initwindows(COLS, LINES); // after endwin && refresh, COLS and LINES are updated
 	return 0;
 }
 
@@ -106,6 +100,12 @@ int exitscreen() {
 	if (! g_initialized) {
 		log_debug("curses is not initialized");
 		return 0;
+	}
+
+	if ((g_mainwin.win != NULL) || (g_innerwin.win != NULL)) {
+		// delwin(g_innerwin.win); // not sure if I need this, valgrind does not notice a difference
+		// delwin(g_mainwin.win);
+		// g_mainwin.win = g_innerwin.win = NULL;
 	}
 
 	if (endwin() == ERR) {
@@ -130,18 +130,41 @@ int updatewindow(ifdata_t *head) {
 	werase(g_innerwin.win);
 	box(g_mainwin.win, 0, 0);
 
-	for (ifdata_t *p_tmp = head; p_tmp != NULL; p_tmp = p_tmp->next) {
-		if (p_tmp->up) {
-			waddch(g_innerwin.win, 'o' | A_BOLD | COLOR_PAIR(2));
-		} else {
-			waddch(g_innerwin.win, 'x' | A_BOLD | COLOR_PAIR(1));
-		}
-		wprintw(g_innerwin.win, " | %-12s: %s\n", p_tmp->ifname, p_tmp->mac);
-	}
+	writewindow(head);
 
 	wnoutrefresh(g_mainwin.win);
 	wnoutrefresh(g_innerwin.win);
 	doupdate();
 	log_debug("screen updated");
+	return 0;
+}
+
+int writewindow(ifdata_t *head) {
+
+	// check win size.
+	int x, y;
+	x = getmaxx(g_innerwin.win);
+	y = 0;
+	int macstart = x - MACSIZE;
+
+	attron(A_BOLD);
+	mvwprintw(g_innerwin.win, y, LINESTART, "%s", "UP");
+	mvwprintw(g_innerwin.win, y, NAMESTART, "%s", "NAME");
+	mvwprintw(g_innerwin.win, y++, macstart, "%s", "MAC");
+	attroff(A_BOLD);
+
+	for (ifdata_t *p_tmp = head; p_tmp != NULL; p_tmp = p_tmp->next) {
+
+		if (p_tmp->up) {
+			mvwaddch(g_innerwin.win, y, LINESTART, 'o' | A_BOLD | COLOR_PAIR(2));
+		} else {
+			mvwaddch(g_innerwin.win, y, LINESTART, 'x' | A_BOLD | COLOR_PAIR(1));
+		}
+
+		mvwprintw(g_innerwin.win, y, NAMESTART, "%s", p_tmp->ifname);
+		mvwprintw(g_innerwin.win, y, macstart, "%s", p_tmp->mac);
+
+		y++;
+	}
 	return 0;
 }

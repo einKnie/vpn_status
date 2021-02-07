@@ -22,10 +22,18 @@
 #define VPN_UP 1
 #define VPN_DOWN 0
 
+#define MACSIZE 18
+#define IPSIZE 100
+
+#define IFDATA_GET 0
+#define IFDATA_SET 1
+
 /// interfaces linked list
 typedef struct ifdata {
+	int  ifidx;
 	char ifname[IFNAMSIZ];
-	char mac[64];
+	char mac[MACSIZE];
+	char ip[IPSIZE];
 	int  up;
 	struct ifdata *next;
 	struct ifdata *prev;
@@ -33,22 +41,39 @@ typedef struct ifdata {
 
 /// Initialize vpn_status
 int init(ifdata_t **head, const char *upscript, const char *downscript);
+
 /// Parse a netlink message
+/// @todo: see how i can get rid of this
 int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head);
-/// request info on all interfaces && store data
+
+/// request info on all interfaces && store data in linked list
+/// if head == NULL, the list is created, otherwise appended
 int fetch_ifinfo(ifdata_t **head);
-/// fetch single interface data from a netlink message
-ifdata_t *get_ifdata(struct nlmsghdr *hdr);
 
+/// send a request for data to netlink socket
+/// type may be RTM_GETLINK or RTM_GETADDR
+int request_ifdata(int sock, int type);
 
-/// print info on interfaces
+/// parse a response to a getlink or getaddr request
+int receive_ifdata(int sock, ifdata_t **head);
+
+/// parse a getlink response specifically
+ifdata_t *get_ifdata(struct nlmsghdr *hdr, ifdata_t **head, int op);
+
+/// parse a getaddr response specifically
+ifdata_t *get_ifaddr(struct nlmsghdr *hdr, ifdata_t **head, int op);
+
+/// print all info on interfaces
 void print_ifinfo(ifdata_t *head);
+
 /// add an entry to the interfaces linked list
 void add_ifdata(ifdata_t *p_new, ifdata_t **head);
+
 /// remove an entry from the interfaces linked list
 void del_ifdata(ifdata_t *p_del, ifdata_t **head);
-/// find full data of query in interfaces linked list
-ifdata_t *find_ifdata(ifdata_t *ifquery, ifdata_t *head);
+
+/// find interface by index
+ifdata_t *find_ifdata(ifdata_t *head, int idx);
 
 // check if device is tun or tap
 // return 1 if yes, 0 if no

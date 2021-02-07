@@ -9,6 +9,7 @@
 *
 */
 
+#include <arpa/inet.h>
 #include <string.h>
 #include <errno.h>
 #include "log.h"
@@ -72,84 +73,121 @@ int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head) {
 	// Loop over the netlink header contained in the message
 	for (nh = (struct nlmsghdr *) nlmsg_buf; NLMSG_OK(nh, buflen); nh = NLMSG_NEXT(nh, buflen)) {
 
-		ifdata_t *p_dat = get_ifdata(nh);
-		if (p_dat == NULL) {
-			log_debug("invalid interface data gotten: ignoring");
-			continue;
-		}
+		ifdata_t *p_dat = NULL;
 
-		if (nh->nlmsg_type == RTM_NEWLINK) {
-			// new link
+		switch(nh->nlmsg_type) {
+			case RTM_NEWLINK:
+			{
+				log_debug("RTM_NEWLINK");
+				// check if interface already exists
+				p_dat = get_ifdata(nh, NULL, IFDATA_GET);
+				ifdata_t *p_res = find_ifdata(p_head, p_dat->ifidx);
+				if (p_res == NULL) {
+					add_ifdata(p_dat, &p_head);
+					if (is_tun_or_tap(p_dat->ifname)) {
+						log_notice("\n--\nA VPN interface was added\n--");
+						if (p_dat->up) {
+							if (call_script(p_dat->up) != 0) {
+								log_error("Failed to execute cmd");
+							}
+						}
+					}
 
-			// check if interface already exists
-			ifdata_t *p_res = find_ifdata(p_dat, p_head);
-			if (p_res == NULL) {
-				add_ifdata(p_dat, &p_head);
-				if (is_tun_or_tap(p_dat->ifname)) {
-					log_notice("\n--\nA VPN interface was added\n--");
-					if (p_dat->up) {
+					log_notice("Interface added:");
+					log_notice("%-12s: %s", p_dat->ifname, p_dat->mac);
+
+				} else {
+					log_notice("Changes detected on interface %s:%s (%c)",
+						p_res->ifname, p_res->mac, p_dat->up ? 'o' : 'x');
+
+					if (p_res->up != p_dat->up) {
+						p_res->up = p_dat->up;
+						if(is_tun_or_tap(p_res->ifname)) {
+							if (call_script(p_dat->up) != 0) {
+								log_error("Failed to execute cmd");
+							}
+						}
+						log_notice("New state:");
+						print_ifinfo(p_head);
+					}
+					free(p_dat);
+					continue;
+				}
+			} break;
+
+			case RTM_DELLINK:
+			{
+				log_debug("RTM_DELLINK");
+				p_dat = get_ifdata(nh, NULL, IFDATA_GET);
+				ifdata_t *p_res = find_ifdata(p_head, p_dat->ifidx);
+				if (p_res == NULL) {
+					log_debug("no data found on removed interface!");
+				} else {
+					if (is_tun_or_tap(p_res->ifname)) {
+						log_notice("\n--\nA VPN interface was removed\n--");
 						if (call_script(p_dat->up) != 0) {
 							log_error("Failed to execute cmd");
 						}
 					}
+					del_ifdata(p_res, &p_head);
 				}
 
-				log_notice("Interface added:");
+				log_notice("Interface removed:");
 				log_notice("%-12s: %s", p_dat->ifname, p_dat->mac);
-
-			} else {
-				log_notice("Changes detected on interface %s:%s (%c)",
-					p_res->ifname, p_res->mac, p_dat->up ? 'o' : 'x');
-
-				if (p_res->up != p_dat->up) {
-					p_res->up = p_dat->up;
-					if(is_tun_or_tap(p_res->ifname)) {
-						if (call_script(p_dat->up) != 0) {
-							log_error("Failed to execute cmd");
-						}
-					}
-					log_notice("New state:");
-					print_ifinfo(p_head);
-				}
 				free(p_dat);
-				continue;
-			}
+			} break;
 
-		} else if (nh->nlmsg_type == RTM_DELLINK) {
-			// link deleted
-
-			ifdata_t *p_res = find_ifdata(p_dat, p_head);
-			if (p_res == NULL) {
-				log_debug("no data found on removed interface!");
-			} else {
-				if (is_tun_or_tap(p_res->ifname)) {
-					log_notice("\n--\nA VPN interface was removed\n--");
-					if (call_script(VPN_DOWN) != 0) {
-						log_error("Failed to execute cmd");
+			case RTM_NEWADDR:
+			{
+				log_debug("RTM_NEWADDR");
+				p_dat = get_ifaddr(nh, NULL, IFDATA_GET);
+				ifdata_t *p_res = find_ifdata(p_head, p_dat->ifidx);
+				if (p_res == NULL) {
+					log_debug("no data found on changed interface!");
+				} else {
+					if (strncmp(p_dat->ip, p_res->ip, strlen(p_res->ip)) != 0) {
+						log_debug("ip address has changed! %s vs. %s", p_dat->ip, p_res->ip);
+						strncpy(p_res->ip, p_dat->ip, sizeof(p_res->ip));
+					} else {
+						log_debug("no changes detected");
 					}
 				}
-				del_ifdata(p_res, &p_head);
-			}
+			} break;
 
-			log_notice("Interface removed:");
-			log_notice("%-12s: %s", p_dat->ifname, p_dat->mac);
-			free(p_dat);
+			case RTM_DELADDR:
+			{
+				log_debug("RTM_DELADDR");
+				p_dat = get_ifaddr(nh, NULL, IFDATA_GET);
+				ifdata_t *p_res = find_ifdata(p_head, p_dat->ifidx);
+				if (p_res == NULL) {
+					log_debug("no data found on changed interface!");
+				} else {
+					if (strncmp(p_dat->ip, p_res->ip, strlen(p_res->ip)) != 0) {
+						log_debug("ip address has changed! %s vs. %s", p_dat->ip, p_res->ip);
+						strncpy(p_res->ip, p_dat->ip, sizeof(p_res->ip));
+					} else {
+						log_debug("no changes detected");
+					}
+				}
+			} break;
 
-
-		} else if (nh->nlmsg_type == RTM_GETLINK) {
-			log_error("got a getlink meesage!\n\n");
+			case RTM_NEWROUTE: log_debug("RTM_NEWROUTE"); continue;
+			case RTM_DELROUTE: log_debug("RTM_DELROUTE"); continue;
+			case RTM_NEWNEIGH: log_debug("RTM_NEWNEIGH"); continue; // why am i getting these messages?
+			case RTM_DELNEIGH: log_debug("RTM_DELNEIGH"); continue;
+			default: log_debug("other type received: %d", nh->nlmsg_type); continue;
 		}
+
 		log_notice("New state:");
 		print_ifinfo(p_head);
 	}
 	return 0;
 }
 
-/// Add info (ifname && mac) for all current interfaces to ifdata linked list
+/// Add info (ifname, mac, ip) for all current interfaces to ifdata linked list
 int fetch_ifinfo(ifdata_t **head) {
 	int nl_sock = -1;
-	struct sockaddr_nl src_addr = {AF_NETLINK, 0, (__u32) getpid(), 0};
-	struct sockaddr_nl dest_addr = {AF_NETLINK, 0, 0, 0};
+	int got_vpn = 0;
 
 	// create socket
 	if ((nl_sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE)) < 0) {
@@ -157,66 +195,73 @@ int fetch_ifinfo(ifdata_t **head) {
 		return 1;
 	}
 
-	// bind socket
-	if (bind(nl_sock, (struct sockaddr*)&src_addr, sizeof(src_addr)) < 0) {
-		log_error("Failed to bind fetcher socket: %s", strerror(errno));
-		close(nl_sock);
-		return 1;
+	// get linklevel info (state, ifname, mac)
+	if (request_ifdata(nl_sock, RTM_GETLINK) < 0) {
+		log_error("failed to send netlink request");
+	} else if (receive_ifdata(nl_sock, head) != 0) {
+		log_error("failed to parse netlink response");
 	}
 
+	// get ip address
+	if (request_ifdata(nl_sock, RTM_GETADDR) < 0) {
+		log_error("failed to send netlink request");
+	} else if (receive_ifdata(nl_sock, head) != 0) {
+		log_error("failed to parse netlink response");
+	}
+
+	// check if we have a vpn link already
+	for (ifdata_t *tmp = *head; tmp != NULL; tmp = tmp->next) {
+		if (tmp->up && (is_tun_or_tap(tmp->ifname))) {
+			got_vpn = 1;
+			break;
+		}
+	}
+
+	if (file_write(got_vpn) != 0) {
+		log_error("Failed to write to file");
+	}
+
+	close(nl_sock);
+	return 0;
+}
+
+int request_ifdata(int sock, int type) {
 	struct {
 		struct nlmsghdr nh;
 		struct rtgenmsg rtg;
 	} request = {0};
-	char buffer[4096];
-	struct iovec iov = {0};
-	struct msghdr msg = {0};
-	struct nlmsghdr *nh;
-	ssize_t n;
 
 	// Prepare address request for the kernel
 	request.nh.nlmsg_len      = NLMSG_LENGTH(sizeof(request.rtg));
-	request.nh.nlmsg_type     = RTM_GETLINK;
+	request.nh.nlmsg_type     = type;
 	request.nh.nlmsg_flags    = NLM_F_REQUEST | NLM_F_DUMP;
 	request.rtg.rtgen_family  = AF_PACKET;
 
-	iov.iov_base    = &request;
-	iov.iov_len     = request.nh.nlmsg_len;
-	msg.msg_name    = &dest_addr;
-	msg.msg_namelen = sizeof(dest_addr);
-	msg.msg_iov     = &iov;
-	msg.msg_iovlen  = 1;
+	return send(sock, &request, request.nh.nlmsg_len, 0);
+}
 
-	// Send the request message
-	if (sendmsg(nl_sock, (struct msghdr *) &msg, 0) < 0) {
-		log_error("Error sending interface request to netlink: %s", strerror(errno));
-		close(nl_sock);
-		return 1;
-	}
-
-	// Prepare iovec for the response
-	memset(&iov, 0, sizeof(iov));
-	iov.iov_base  = buffer;
-	iov.iov_len   = sizeof(buffer);
-
+int receive_ifdata(int sock, ifdata_t **head) {
+	char buffer[4096];
+	struct nlmsghdr *nh;
+	ssize_t n;
 	int done    = 0;
-	int got_vpn = 0;
+
 	while (!done) {
-		// Receive the response from netlink
-		if ((n = recvmsg(nl_sock, &msg, 0)) < 0) {
+
+		if ((n = recv(sock, buffer, sizeof(buffer), 0)) < 0) {
 			log_error("Error receiving message from netlink: %s", strerror(errno));
-			close(nl_sock);
+			close(sock);
 			return 1;
 		}
 
 		// go though messages
 		for (nh = (struct nlmsghdr *) buffer; NLMSG_OK(nh, n); nh = NLMSG_NEXT(nh, n)) {
 			if (nh->nlmsg_type == RTM_NEWLINK) {
-				ifdata_t *p_new = get_ifdata(nh);
-				add_ifdata(p_new, head);
-				if (p_new->up && (is_tun_or_tap(p_new->ifname))) {
-					got_vpn = 1;
-				}
+				log_debug("NEWLINK received");
+				get_ifdata(nh, head, IFDATA_SET);
+			} else if (nh->nlmsg_type == RTM_NEWADDR) {
+				log_debug("NEWADDR received");
+				get_ifaddr(nh, head, IFDATA_SET);
 			} else if (nh->nlmsg_type == NLMSG_DONE) {
 				log_debug("all interfaces received");
 				done = 1;
@@ -229,33 +274,42 @@ int fetch_ifinfo(ifdata_t **head) {
 	if (call_script(got_vpn) != 0) {
 		log_error("Failed to execute command");
 	}
-	close(nl_sock);
 	return 0;
 }
 
-ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
+ifdata_t *get_ifdata(struct nlmsghdr *hdr, ifdata_t **head, int op) {
 	struct ifinfomsg *ifi = NULL;
 	struct rtattr *attr   = NULL;
 	ssize_t attr_len      = 0;
 	unsigned char *ptr    = NULL;
-
-	// prepare new ifdata struct
-	ifdata_t *p_new = (ifdata_t*)malloc(sizeof(ifdata_t));
-	memset(p_new->ifname, '\0', sizeof(p_new->ifname));
-	memset(p_new->mac, '\0', sizeof(p_new->mac));
-	p_new->up = -1;
-	p_new->next = NULL;
-	p_new->prev = NULL;
-
 	char ifname[IFNAMSIZ] = {'\0'};
 
 	ifi = (struct ifinfomsg *) NLMSG_DATA(hdr);
+
+	ifdata_t *p_new = NULL;
+	// if op == get:
+	// dont even look at head, create new, return new
+	// if op == set:
+	// check if index in head
+	//	if yes: add data to existing, return existing
+	//	if no: create new, add to list, add data, return new
+	if ( (op == IFDATA_GET) || ((op == IFDATA_SET) && ((p_new = find_ifdata(*head, ifi->ifi_index)) == NULL)) ) {
+		// create p_new
+		p_new = (ifdata_t*)malloc(sizeof(ifdata_t));
+		memset(p_new->ifname, '\0', sizeof(p_new->ifname));
+		memset(p_new->mac, '\0', sizeof(p_new->mac));
+		memset(p_new->ip, '\0', sizeof(p_new->ip));
+		p_new->ifidx = ifi->ifi_index;
+		p_new->up = -1;
+		p_new->next = NULL;
+		p_new->prev = NULL;
+
+		if (op == IFDATA_SET) {
+			add_ifdata(p_new, head);
+		}
+	}
+
 	log_debug("~~~ interface %s ~~~ \n", if_indextoname(ifi->ifi_index, ifname));
-	log_debug("flags:");
-	log_debug("IFF_UP: %s", (ifi->ifi_flags & IFF_UP) ? "yes" : "no");
-	log_debug("IFF_LOWER_UP: %s", (ifi->ifi_flags & IFF_LOWER_UP) ? "yes" : "no");
-	log_debug("!IFF_DORMANT: %s", (ifi->ifi_flags ^ IFF_DORMANT) ? "yes" : "no");
-	log_debug("IFF_RUNNING: %s", (ifi->ifi_flags & IFF_RUNNING) ? "yes" : "no");
 
 	p_new->up = (ifi->ifi_flags & IFF_RUNNING) ? 1 : 0;
 	log_debug("Device %d (%s) is  %s!", ifi->ifi_index, ifname, p_new->up ? "up" : "down");
@@ -274,72 +328,85 @@ ifdata_t *get_ifdata(struct nlmsghdr *hdr) {
 				snprintf(p_new->ifname, sizeof(p_new->ifname),
 					"%s", (char *)RTA_DATA(attr));
 				break;
-			case IFLA_LINK:
-				log_debug("got link status (maybe): %d", (char*)RTA_DATA(attr));
-				break;
-			case IFLA_TXQLEN:
-				log_debug("got TX queue length");
-				break;
-			case IFLA_OPERSTATE: {
-				int oper_state = *(int*)RTA_DATA(attr);
-				log_debug("got operation state %d", oper_state);
-				if (oper_state == 6) {
-					log_debug("interface %s is operational", ifname);
-				} else if (oper_state == 5) {
-					log_debug("interface %s might be dormant", ifname);
-				} else {
-					log_debug("interface %s may not be operational", ifname);
-				}
-				break;
-			}
-			case IFLA_PROMISCUITY:
-				log_debug("got promiscuity: %d", *(int*)RTA_DATA(attr));
-				break;
-			case IFLA_CARRIER:
-				log_debug("got carrier: %s", (char*)RTA_DATA(attr));
-				break;
-			case IFLA_CARRIER_CHANGES:
-				log_debug("got carrier changes(?): %s", (char*)RTA_DATA(attr));
-				break;
-			case IFLA_LINKMODE:
-				log_debug("got link: %d", *(int*)RTA_DATA(attr));
-				break;
-			case IFLA_PROTO_DOWN:
-				log_debug("got proto down: %d", *(int*)RTA_DATA(attr));
-				break;
-			case IFLA_MTU:
-				log_debug("got MTU");
-				break;
-			case IFLA_GROUP:
-				log_debug("got group: %s", (char *)RTA_DATA(attr));
-				break;
-			case IFLA_STATS:
-				log_debug("Got stats!");
-				struct rtnl_link_stats *stats = (struct rtnl_link_stats*)RTA_DATA(attr);
-				log_debug("\nrx packets: %ul\ntx packets: %ul\nrx bytes: %ul\n" \
-					"tx bytes: %ul\nrx errors: %ul\ntx errors: %ul\nrx dropped: %ul\n" \
-					"tx dropped: %ul", stats->rx_packets, stats->tx_packets,
-					stats->rx_bytes, stats->tx_bytes, stats->rx_errors, stats->tx_errors,
-					stats->rx_dropped, stats->tx_dropped);
-				break;
 			default:
 				// log_debug("got something else: rta_type: %d : %d", attr->rta_type, (char*)RTA_DATA(attr));
 				break;
 		}
 	}
 
-	if (strlen(p_new->ifname) == 0) {
-		log_debug("no usable interface data gatered, ignoring %7s:%s",
-			p_new->ifname, p_new->mac);
-		free(p_new);
-		p_new = NULL;
+	if (op == IFDATA_GET) {
+		if (strlen(p_new->ifname) == 0) {
+			log_debug("no usable interface data gatered, ignoring %7s:%s",
+				p_new->ifname, p_new->mac);
+			free(p_new);
+			p_new = NULL;
+		}
+	}
+
+	return p_new;
+}
+
+ifdata_t *get_ifaddr(struct nlmsghdr *hdr, ifdata_t **head, int op) {
+	struct ifaddrmsg *ifa = NULL;
+	struct rtattr *attr   = NULL;
+	ssize_t attr_len      = 0;
+	char tmpip[IPSIZE]    = {'\0'};
+
+	ifa = (struct ifaddrmsg *) NLMSG_DATA(hdr);
+	attr = IFA_RTA(ifa);
+	attr_len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*ifa));
+
+	ifdata_t *p_new = NULL;
+	if ( (op == IFDATA_GET) || ((op == IFDATA_SET) && ((p_new = find_ifdata(*head, ifa->ifa_index)) == NULL)) ) {
+		// create p_new
+		p_new = (ifdata_t*)malloc(sizeof(ifdata_t));
+		memset(p_new->ifname, '\0', sizeof(p_new->ifname));
+		memset(p_new->mac, '\0', sizeof(p_new->mac));
+		memset(p_new->ip, '\0', sizeof(p_new->ip));
+		p_new->ifidx = ifa->ifa_index;
+		p_new->up = -1;
+		p_new->next = NULL;
+		p_new->prev = NULL;
+
+		if (op == IFDATA_SET) {
+			add_ifdata(p_new, head);
+		}
+	}
+
+	for (; RTA_OK(attr, attr_len); attr = RTA_NEXT(attr, attr_len)) {
+		switch(attr->rta_type) {
+			case IFA_ADDRESS:
+				inet_ntop(AF_INET, RTA_DATA(attr), tmpip, sizeof(tmpip));
+				if (strlen(p_new->ip) == 0) {
+					// don't overwrite in case we already have a local address
+					strncpy(p_new->ip, tmpip, sizeof(p_new->ip));
+				}
+				log_debug("got an ipaddress for %s: %s", p_new->ifname, tmpip);
+				break;
+			case IFA_LOCAL:
+				// pretty sue this is the one we want primarily
+				inet_ntop(AF_INET, RTA_DATA(attr), p_new->ip, sizeof(p_new->ip));
+				log_debug("got a local ipaddress for %s: %s", p_new->ifname, p_new->ip);
+				break;
+			default:
+				break;
+		}
+	}
+
+	if (op == IFDATA_GET) {
+		if (strlen(p_new->ip) == 0) {
+			log_debug("no usable interface data gatered, ignoring %7s:%s",
+				p_new->ifname, p_new->mac);
+			free(p_new);
+			p_new = NULL;
+		}
 	}
 	return p_new;
 }
 
 void print_ifinfo(ifdata_t *head) {
 	for (ifdata_t *p_tmp = head; p_tmp != NULL; p_tmp = p_tmp->next) {
-		log_notice("%c | %-12s: %s", (p_tmp->up ? 'o' : 'x'), p_tmp->ifname, p_tmp->mac);
+		log_notice("%c | %2d | %-12s: %-17s %s", (p_tmp->up ? 'o' : 'x'), p_tmp->ifidx, p_tmp->ifname, p_tmp->ip, p_tmp->mac);
 	}
 }
 
@@ -371,12 +438,11 @@ void del_ifdata(ifdata_t *p_del, ifdata_t **head) {
 	free(p_del);
 }
 
-ifdata_t *find_ifdata(ifdata_t *ifquery, ifdata_t *head) {
-	// ifquery contains ifname or mac
-	// if either matches, return this interface's full data
+ifdata_t *find_ifdata(ifdata_t *head, int idx) {
+	// find interface in list by given index
+	// if found, return this interface's full data, else NULL
 	for (ifdata_t *p_tmp = head; p_tmp != NULL; p_tmp = p_tmp->next) {
-		if ((strncmp(p_tmp->ifname, ifquery->ifname, sizeof(p_tmp->ifname)) == 0) ||
-			(strncmp(p_tmp->mac, ifquery->mac, sizeof(p_tmp->mac)) == 0)) {
+		if (p_tmp->ifidx == idx) {
 			log_debug("found matching interface: %s", p_tmp->ifname);
 			return p_tmp;
 		}

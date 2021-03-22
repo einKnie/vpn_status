@@ -26,6 +26,7 @@ typedef struct {
 
 #define LINESTART 0
 #define NAMESTART 4
+#define IPSTART  (NAMESTART + IFNAMSIZ)
 
 // initialize screen with curses lib
 int initscreen(void);

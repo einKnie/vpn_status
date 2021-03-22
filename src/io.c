@@ -150,6 +150,7 @@ int writewindow(ifdata_t *head) {
 	attron(A_BOLD);
 	mvwprintw(g_innerwin.win, y, LINESTART, "%s", "UP");
 	mvwprintw(g_innerwin.win, y, NAMESTART, "%s", "NAME");
+	mvwprintw(g_innerwin.win, y, IPSTART, "%s", "IP");
 	mvwprintw(g_innerwin.win, y++, macstart, "%s", "MAC");
 	attroff(A_BOLD);
 
@@ -162,6 +163,7 @@ int writewindow(ifdata_t *head) {
 		}
 
 		mvwprintw(g_innerwin.win, y, NAMESTART, "%s", p_tmp->ifname);
+		mvwprintw(g_innerwin.win, y, IPSTART, "%s", p_tmp->ip);
 		mvwprintw(g_innerwin.win, y, macstart, "%s", p_tmp->mac);
 
 		y++;

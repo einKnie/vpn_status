@@ -9,7 +9,7 @@ Simple program to monitor whether a VPN connection is active. This is done by mo
 If a tap or tun interface is added (this happens when a VPN connection is established), the program will execute a user-defined command.
 The same is done whenever a tap or tun device is removed - a VPN connection was severed. In this case, another user-defined command is called.
 
-These *user-defined commands* may be any call that would work in a shell. The path to a script, some file in your path, anything. 
+These *user-defined commands* may be any call that would work in a shell. The path to a script, some shell commands, anything. 
 
 :exclamation: **Be careful** The provided commands are not checked in any way before calling them.
 

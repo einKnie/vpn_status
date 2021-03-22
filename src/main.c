@@ -30,7 +30,9 @@ void print_help() {
 	log_notice("\t%s [options]", PROCNAME);
 	log_notice("-f <path>  ... log to file at path");
 	log_notice("-v <level> ... set loglevel (0...4) [default 3]");
-	log_notice("-d         ... daemon mode; all logging goes to /tmp/%s.log", PROCNAME);
+	log_notice("-q         ... quiet mode; all logging goes to /tmp/%s.log", PROCNAME);
+	log_notice("-u <path>  ... set script to call when vpn is detected up");
+	log_notice("-d <path>  ... set script to call when vpn is detected down");
 	log_notice("-h         ... print this help message and exit");
 	log_notice("");
 }
@@ -45,26 +47,37 @@ int main(int argc, char *argv[]) {
 	sigaction(SIGTERM, &act, 0);
 	atexit(cleanup);
 
+	char upscript[PATH_MAX] = {'\0'};
+	char downscript[PATH_MAX] = {'\0'};
+
 	// init preliminary logger
 	char logfile[PATH_MAX] = {'\0'};
 	logLevel_e loglevel = ELogVerbose;
 	log_init(loglevel, ELogStyleNone, NULL);
 
 	int opt;
-	while ((opt = getopt(argc, argv, "f:v:dh")) != -1) {
+	while ((opt = getopt(argc, argv, "f:v:u:d:qh")) != -1) {
 		switch(opt) {
 			case 'f':
 				strncpy(logfile, optarg, sizeof(logfile));
 				log_notice("disabling output to stdout.");
-				log_notice("logfile may be read at %s\n", logfile);
+				log_notice("logfile may be read at %s", logfile);
 				break;
 			case 'v':
 				loglevel = (logLevel_e)atoi(optarg);
 				break;
-			case 'd':
+			case 'q':
 				snprintf(logfile,  sizeof(logfile),  "/tmp/%s.log", PROCNAME);
 				log_notice("disabling output to stdout.");
 				log_notice("logfile may be read at %s", logfile);
+				break;
+			case 'u':
+				strncpy(upscript, optarg, sizeof(upscript));
+				log_notice("will call %s when vpn is up", upscript);
+				break;
+			case 'd':
+				strncpy(downscript, optarg, sizeof(downscript));
+				log_notice("will call %s when vpn is down", downscript);
 				break;
 			case 'h':
 				print_help();
@@ -82,7 +95,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	g_head = NULL;
-	if (init(&g_head) != 0) {
+	if (init(&g_head, upscript, downscript) != 0) {
 		printf("error: failed to initialize\n");
 		exit(1);
 	}

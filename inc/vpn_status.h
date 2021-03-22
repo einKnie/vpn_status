@@ -21,7 +21,6 @@
 
 #define VPN_UP 1
 #define VPN_DOWN 0
-#define VPN_SYMBOL ""
 
 /// interfaces linked list
 typedef struct ifdata {
@@ -33,7 +32,7 @@ typedef struct ifdata {
 } ifdata_t;
 
 /// Initialize vpn_status
-int init(ifdata_t **head);
+int init(ifdata_t **head, const char *upscript, const char *downscript);
 /// Parse a netlink message
 int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head);
 /// request info on all interfaces && store data
@@ -55,8 +54,7 @@ ifdata_t *find_ifdata(ifdata_t *ifquery, ifdata_t *head);
 // return 1 if yes, 0 if no
 int is_tun_or_tap(const char *ifname);
 
-/// write the symbol to the file
-/// or remove it
-int file_write(int op);
+/// call a user defined command
+int call_script(int op);
 
 #endif // !_VPN_STATUS_H_

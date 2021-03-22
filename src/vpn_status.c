@@ -31,16 +31,18 @@
 //
 
 //	todo:
-//		* allow arbitrary action
+//		* allow arbitrary action ~ kinda done
 //		* actual ui (maybe w/ curses)
 //		* actions settable for different interfaces (per name or mac))
 //		* config via configfile
 //
 
-char g_datfile[PATH_MAX] = {'\0'};	///< path to data file
+char g_datfile[PATH_MAX]  = {'\0'};  ///< path to data file
+char g_upcmd[PATH_MAX]    = {'\0'};  ///< up script
+char g_downcmd[PATH_MAX]  = {'\0'};  ///< down script
 
 /// Initialize vpn_status
-int init(ifdata_t **head) {
+int init(ifdata_t **head, const char *upscript, const char *downscript) {
 	char *user = NULL;
 
 	// prepare data file
@@ -55,6 +57,10 @@ int init(ifdata_t **head) {
 		log_error("Failed to fetch interface information");
 		return 1;
 	}
+
+	// set up && down actions
+	strncpy(g_upcmd, upscript, sizeof(g_upcmd));
+	strncpy(g_downcmd, downscript, sizeof(g_downcmd));
 
 	return 0;
 }
@@ -82,7 +88,9 @@ int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head) {
 				if (is_tun_or_tap(p_dat->ifname)) {
 					log_notice("\n--\nA VPN interface was added\n--");
 					if (p_dat->up) {
-						file_write(p_dat->up);
+						if (call_script(p_dat->up) != 0) {
+							log_error("Failed to execute cmd");
+						}
 					}
 				}
 
@@ -96,7 +104,9 @@ int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head) {
 				if (p_res->up != p_dat->up) {
 					p_res->up = p_dat->up;
 					if(is_tun_or_tap(p_res->ifname)) {
-						file_write(p_res->up);
+						if (call_script(p_dat->up) != 0) {
+							log_error("Failed to execute cmd");
+						}
 					}
 					log_notice("New state:");
 					print_ifinfo(p_head);
@@ -114,8 +124,8 @@ int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head) {
 			} else {
 				if (is_tun_or_tap(p_res->ifname)) {
 					log_notice("\n--\nA VPN interface was removed\n--");
-					if (file_write(VPN_DOWN) != 0) {
-						log_error("Failed to write to file");
+					if (call_script(VPN_DOWN) != 0) {
+						log_error("Failed to execute cmd");
 					}
 				}
 				del_ifdata(p_res, &p_head);
@@ -216,8 +226,8 @@ int fetch_ifinfo(ifdata_t **head) {
 		}
 	}
 
-	if (file_write(got_vpn) != 0) {
-		log_error("Failed to write to file");
+	if (call_script(got_vpn) != 0) {
+		log_error("Failed to execute command");
 	}
 	close(nl_sock);
 	return 0;
@@ -379,19 +389,21 @@ int is_tun_or_tap(const char *ifname) {
 		(strncmp(ifname, "tap", 3) == 0));
 }
 
-int file_write(int op) {
-	FILE *fd = fopen(g_datfile, "w");
-	if (fd == NULL) {
-		log_error("Failed to open file at %s", g_datfile);
-		return 1;
-	}
+int call_script(int op) {
+	int ret = -1;
 
 	if (op == VPN_UP) {
-		fprintf(fd, "%s", VPN_SYMBOL);
+		ret = system(g_upcmd);
 	} else if (op == VPN_DOWN) {
-		fprintf(fd, "%s", "");
+		ret = system(g_downcmd);
+	} else {
+		log_warning("invalid action requested in call_script");
+		ret = 1;
 	}
 
-	fclose(fd);
-	return 0;
+	if (ret < 0) {
+		log_warning("Something went wrong when calling script");
+		return 1;
+	}
+	return ret;
 }

@@ -31,8 +31,8 @@ void print_help() {
 	log_notice("-f <path>  ... log to file at path");
 	log_notice("-v <level> ... set loglevel (0...4) [default 3]");
 	log_notice("-q         ... quiet mode; all logging goes to /tmp/%s.log", PROCNAME);
-	log_notice("-u <path>  ... set script to call when vpn is detected up");
-	log_notice("-d <path>  ... set script to call when vpn is detected down");
+	log_notice("-u <cmd>   ... set script to call when vpn is detected up");
+	log_notice("-d <cmd>   ... set script to call when vpn is detected down");
 	log_notice("-h         ... print this help message and exit");
 	log_notice("");
 }

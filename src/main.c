@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
 	while ((opt = getopt(argc, argv, "f:v:u:d:qmh")) != -1) {
 		switch(opt) {
 			case 'f':
-				strncpy(logfile, optarg, sizeof(logfile));
+				snprintf(logfile, sizeof(logfile), "%s", optarg);
 				log_notice("disabling output to stdout.");
 				log_notice("logfile may be read at %s", logfile);
 				break;
@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
 
 	// open and bind netlink socket
 	g_sock = -1;
-	struct sockaddr_nl sa = {AF_NETLINK, 0, 0, RTNLGRP_LINK};
+	struct sockaddr_nl sa = {AF_NETLINK, 0, getpid(), /*RTNLGRP_LINK |*/ RTNLGRP_IPV4_IFADDR};
 
 	if ((g_sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE)) < 0) {
 		log_error("Failed to create socket");

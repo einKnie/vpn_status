@@ -164,7 +164,7 @@ int parse_nlmsg(char *nlmsg_buf, ssize_t buflen, ifdata_t *p_head) {
 				} else {
 					if (strncmp(p_dat->ip, p_res->ip, strlen(p_res->ip)) != 0) {
 						log_debug("ip address has changed! %s vs. %s", p_dat->ip, p_res->ip);
-						strncpy(p_res->ip, p_dat->ip, sizeof(p_res->ip));
+						snprintf(p_res->ip, sizeof(p_res->ip), "%s", p_dat->ip);
 					} else {
 						log_debug("no changes detected");
 					}
@@ -378,8 +378,8 @@ ifdata_t *get_ifaddr(struct nlmsghdr *hdr, ifdata_t **head, int op) {
 			case IFA_ADDRESS:
 				inet_ntop(AF_INET, RTA_DATA(attr), tmpip, sizeof(tmpip));
 				if (strlen(p_new->ip) == 0) {
-					// don't overwrite in case we already have a local address
-					strncpy(p_new->ip, tmpip, sizeof(p_new->ip));
+					// only overwrite in case we don't already have a local address
+					snprintf(p_new->ip, sizeof(p_new->ip), "%s", tmpip);
 				}
 				log_debug("got an ipaddress for %s: %s", p_new->ifname, tmpip);
 				break;

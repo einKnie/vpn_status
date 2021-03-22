@@ -43,7 +43,6 @@ void log_notice(const char *fmt, ...);
 void log_debug(const char *fmt, ...);
 void log_always(const char *fmt, ...);
 
-char* get_logstring(char *buf, logStyle_e log_style, const char *log_level, const char *fmt);
 char* to_upper(const char *in, char *buf, int len);
 
 #endif // !_LOG_H_

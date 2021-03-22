@@ -99,15 +99,15 @@ void log_error(const char *fmt, ...) {
 	}
 
 	switch(log_style) {
-		case ELogStyleNone: sprintf(buf, "%s\n", fmt); break;
-		case ELogStyleMinimal: sprintf(buf, "error   | %s\n", fmt); break;
+		case ELogStyleNone: snprintf(buf, sizeof(buf), "%s\n", fmt); break;
+		case ELogStyleMinimal: snprintf(buf, sizeof(buf), "error   | %s\n", fmt); break;
 		case ELogStyleVerbose: {
 			//get time
 			time_t t;
 			struct tm *tm;
 			time(&t);
 			tm = localtime(&t);
-			sprintf(buf, "(PID %d) | %02d:%02d:%02d |  ERROR   | %s\n", \
+			snprintf(buf, sizeof(buf), "(PID %d) | %02d:%02d:%02d |  ERROR   | %s\n", \
 			getpid(), tm->tm_hour, tm->tm_min, tm->tm_sec, fmt);
 		} break;
 		default: return;
@@ -140,8 +140,8 @@ void log_warning(const char *fmt, ...) {
 	}
 
 	switch(log_style) {
-		case ELogStyleNone: sprintf(buf, "%s\n", fmt); break;
-		case ELogStyleMinimal: sprintf(buf, "warning | %s\n", fmt); break;
+		case ELogStyleNone: snprintf(buf, sizeof(buf), "%s\n", fmt); break;
+		case ELogStyleMinimal: snprintf(buf, sizeof(buf), "warning | %s\n", fmt); break;
 		case ELogStyleVerbose: {
 			//get time
 			time_t t;
@@ -181,8 +181,8 @@ void log_notice(const char *fmt, ...) {
 	}
 
 	switch(log_style) {
-		case ELogStyleNone: sprintf(buf, "%s\n", fmt); break;
-		case ELogStyleMinimal: sprintf(buf, "notice  | %s\n", fmt); break;
+		case ELogStyleNone: snprintf(buf, sizeof(buf), "%s\n", fmt); break;
+		case ELogStyleMinimal: snprintf(buf, sizeof(buf), "notice  | %s\n", fmt); break;
 		case ELogStyleVerbose: {
 			//get time
 			time_t t;
@@ -222,15 +222,15 @@ void log_always(const char *fmt, ...) {
 	}
 
 	switch(log_style) {
-		case ELogStyleNone: sprintf(buf, "%s\n", fmt); break;
-		case ELogStyleMinimal: sprintf(buf, "always  | %s\n", fmt); break;
+		case ELogStyleNone: snprintf(buf, sizeof(buf), "%s\n", fmt); break;
+		case ELogStyleMinimal: snprintf(buf, sizeof(buf), "always  | %s\n", fmt); break;
 		case ELogStyleVerbose: {
 			//get time
 			time_t t;
 			struct tm *tm;
 			time(&t);
 			tm = localtime(&t);
-			sprintf(buf, "(PID %d) | %02d:%02d:%02d |  ALWAYS  | %s\n", \
+			snprintf(buf, sizeof(buf), "(PID %d) | %02d:%02d:%02d |  ALWAYS  | %s\n", \
 			getpid(), tm->tm_hour, tm->tm_min, tm->tm_sec, fmt);
 		} break;
 		default: return;
@@ -263,15 +263,15 @@ void log_debug(const char *fmt, ...) {
 	}
 
 	switch(log_style) {
-		case ELogStyleNone: sprintf(buf, "%s\n", fmt); break;
-		case ELogStyleMinimal: sprintf(buf, "debug   | %s\n", fmt); break;
+		case ELogStyleNone: snprintf(buf, sizeof(buf), "%s\n", fmt); break;
+		case ELogStyleMinimal: snprintf(buf, sizeof(buf), "debug   | %s\n", fmt); break;
 		case ELogStyleVerbose: {
 			//get time
 			time_t t;
 			struct tm *tm;
 			time(&t);
 			tm = localtime(&t);
-			sprintf(buf, "(PID %d) | %02d:%02d:%02d |  DEBUG   | %s\n", \
+			snprintf(buf, sizeof(buf), "(PID %d) | %02d:%02d:%02d |  DEBUG   | %s\n", \
 			getpid(), tm->tm_hour, tm->tm_min, tm->tm_sec, fmt);
 		} break;
 		default: return;
@@ -289,26 +289,6 @@ void log_debug(const char *fmt, ...) {
 	}
 	va_end(args);
 	fflush(log_stdout);
-}
-
-char* get_logstring(char *buf, logStyle_e log_style, const char *log_level, const char *fmt) {
-	switch(log_style) {
-		case ELogStyleNone: sprintf(buf, "%s\n", fmt); break;
-		case ELogStyleMinimal: sprintf(buf, "%s  | %s\n", log_level, fmt); break;
-		case ELogStyleVerbose: {
-			//get time
-			char level[30] = {'\0'};
-			time_t t;
-			struct tm *tm;
-			time(&t);
-			tm = localtime(&t);
-			sprintf(buf, "(PID %d) | %02d:%02d:%02d |  %s  | %s\n", \
-			getpid(), tm->tm_hour, tm->tm_min, tm->tm_sec, \
-			to_upper(log_level, level, strlen(log_level)), fmt);
-		} break;
-		default: break;
-	}
-	return buf;
 }
 
 char* to_upper(const char *in, char *buf, int len) {

@@ -85,6 +85,7 @@ int main(int argc, char *argv[]) {
 			case 'd':
 				strncpy(downscript, optarg, sizeof(downscript));
 				log_notice("will call %s when vpn is down", downscript);
+				break;
 			case 'm':
 				f_monitor = 1;
 				snprintf(logfile,  sizeof(logfile),  "/tmp/%s.log", PROCNAME);

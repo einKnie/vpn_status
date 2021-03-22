@@ -217,8 +217,8 @@ int fetch_ifinfo(ifdata_t **head) {
 		}
 	}
 
-	if (file_write(got_vpn) != 0) {
-		log_error("Failed to write to file");
+	if (call_script(got_vpn) != 0) {
+		log_error("Failed to execute command");
 	}
 
 	close(nl_sock);
@@ -271,9 +271,6 @@ int receive_ifdata(int sock, ifdata_t **head) {
 		}
 	}
 
-	if (call_script(got_vpn) != 0) {
-		log_error("Failed to execute command");
-	}
 	return 0;
 }
 

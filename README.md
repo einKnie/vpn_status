@@ -22,6 +22,7 @@ These *user-defined commands* may be any call that would work in a shell. The pa
 |-------------|-------|
 |-f \<path>   | route all logging to file at *path* 
 |-q           | route all logging to file */tmp/vpn_status.log*
+|-m           | monitoring mode: show a live-updated ui
 |-v \<level>  | set loglevel (0...4) [default 3]
 |-u \<command>| set command to call when vpn up
 |-d \<command>| set command to call when vpn down
@@ -34,9 +35,13 @@ These *user-defined commands* may be any call that would work in a shell. The pa
     # and log to file /tmp/vpn_status.log
     vpn_status -q&
     
-    # call vpn_up.sh when a vpn connection is established
+    # run in background and call vpn_up.sh when a vpn connection is established
     # and vpn_down.sh when it is severed
     vpn_status -u ~/scripts/vpn_up.sh -d ~/scripts/vpn_down.sh -q&
+    
+    # run in monitoring mode and call vpn_up.sh when a vpn connection is established
+    # and vpn_down.sh when it is severed
+    vpn_status -u ~/scripts/vpn_up.sh -d ~/scripts/vpn_down.sh -m
     
     # restart finicky applications
     vpn_status -u "killall teams; teams&" -d "killall teams; teams&" -q&

@@ -6,29 +6,40 @@ Simple program to monitor whether a VPN connection is active. This is done by mo
 
 #### Current state
 
-If a tap or tun interface is added (this happens when a VPN connection is established), the program will write a symbol to a file `$HOME/.vpn_status`.  
-The reverse is done whenever a tap or tun device is removed - a VPN connection was severed. I this case, the symbol is removed from the file.
+If a tap or tun interface is added (this happens when a VPN connection is established), the program will execute a user-defined command.
+The same is done whenever a tap or tun device is removed - a VPN connection was severed. In this case, another user-defined command is called.
 
-This implementation is for personal use, but some sort of user-configurable action instead of the file write is planned for the future.
+These *user-defined commands* may be any call that would work in a shell. The path to a script, some file in your path, anything. 
+
+:exclamation: **Be careful** The provided commands are not checked in any way before calling them.
 
 ---
-
-The program does not daemonize itself but is best run in the background, as all log output is written to a file /tmp/vpn_status.log regardless.
 
 
 ### Usage
 
-| cmd        |action |
-|------------|-------|
-|-f \<path\> | route all logging to file at *path* 
-|-d          | route all logging to file */tmp/vpn_status.log*
-|-v \<level\>| set loglevel (0...4) [default 3]
-|-h          | print help
+| cmd         |action |
+|-------------|-------|
+|-f \<path>   | route all logging to file at *path* 
+|-q           | route all logging to file */tmp/vpn_status.log*
+|-v \<level>  | set loglevel (0...4) [default 3]
+|-u \<command>| set command to call when vpn up
+|-d \<command>| set command to call when vpn down
+|-h           | print help
 
 
 ### Examples
 
-    vpn_status -d&   # start vpn_status in the background and log to file /tmp/vpn_status.log
+    # start vpn_status in the background, don't perform any action
+    # and log to file /tmp/vpn_status.log
+    vpn_status -q&
+    
+    # call vpn_up.sh when a vpn connection is established
+    # and vpn_down.sh when it is severed
+    vpn_status -u ~/scripts/vpn_up.sh -d ~/scripts/vpn_down.sh -q&
+    
+    # restart finicky applications
+    vpn_status -u "killall teams; teams&" -d "killall teams; teams&" -q&
 
 
 #### Example logfile
